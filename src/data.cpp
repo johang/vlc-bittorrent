@@ -42,11 +42,6 @@ struct access_sys_t {
 	 */
 	int index = 0;
 
-	/**
-	 * Seek position.
-	 */
-	uint64_t position = 0;
-
 	~access_sys_t()
 	{
 		delete download;
@@ -157,7 +152,8 @@ DataSeek(access_t *p_access, uint64_t i_pos)
 	if (!p_access->p_sys)
 		return VLC_EGENERIC;
 
-	p_access->p_sys->position = i_pos;
+	p_access->info.i_pos = i_pos;
+	p_access->info.b_eof = false;
 
 	return VLC_SUCCESS;
 }
@@ -178,12 +174,14 @@ DataRead(access_t *p_access, uint8_t *p_buffer, size_t i_len)
 
 	ssize_t size = p_access->p_sys->download->read(
 		p_access->p_sys->index,
-		p_access->p_sys->position,
+		p_access->info.i_pos,
 		(char *) p_buffer,
 		i_len);
 
 	if (size > 0)
-		p_access->p_sys->position += (uint64_t) size;
+		p_access->info.i_pos += (uint64_t) size;
+	else
+		p_access->info.b_eof = true;
 
 	return size;
 }
