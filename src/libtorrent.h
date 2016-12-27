@@ -10,5 +10,7 @@
 #include <libtorrent/peer_request.hpp>
 #include <libtorrent/create_torrent.hpp>
 #include <libtorrent/version.hpp>
+#include <libtorrent/hex.hpp>
+#include <libtorrent/sha1_hash.hpp>
 
 #endif

@@ -18,6 +18,7 @@
 #include <vlc_stream.h>
 #include <vlc_url.h>
 #include <vlc_variables.h>
+#include <vlc_fs.h>
 #pragma GCC diagnostic pop
 
 #endif

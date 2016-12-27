@@ -31,11 +31,7 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 using namespace libtorrent;
 
 struct demux_sys_t {
-	add_torrent_params params;
-
-	demux_sys_t(add_torrent_params p) : params(p)
-	{
-	}
+	char *magnet;
 };
 
 static int
@@ -56,44 +52,44 @@ MagnetMetadataOpen(vlc_object_t *p_this)
 	std::string demux(p_demux->psz_demux ?: "");
 	std::string file(p_demux->psz_file ?: "");
 
-	error_code ec;
+	demux_sys_t *p_sys = (demux_sys_t *) malloc(sizeof (struct demux_sys_t));
 
-	add_torrent_params params;
+	size_t indexf = file.rfind("magnet:?");
+	size_t indexl = location.rfind("magnet:?");
 
-	params.flags &= ~libtorrent::add_torrent_params::flag_auto_managed;
-	params.flags &= ~libtorrent::add_torrent_params::flag_paused;
-	// TODO: better save path
-	params.save_path = "/tmp";
-
-	if (access == "magnet") {
-		parse_magnet_uri(location, params, ec);
-	} else if (access == "file") {
-		size_t index = file.rfind("magnet:?");
-
-		if (index == std::string::npos)
-			return VLC_EGENERIC;
-
-		parse_magnet_uri(file.substr(index), params, ec);
+	if (indexf != std::string::npos) {
+		p_sys->magnet = decode_URI_duplicate(location.substr(indexf).c_str());
 	} else {
-		return VLC_EGENERIC;
+		if (indexl != std::string::npos) {
+			p_sys->magnet = strdup(file.substr(indexl).c_str());
+		} else {
+			goto err;
+		}
 	}
 
-	if (ec) {
-		msg_Err(p_demux, "Invalid magnet: %s", ec.message().c_str());
-		return VLC_EGENERIC;
-	}
+	msg_Info(p_demux, "Magnet is %s", p_sys->magnet);
 
-	p_demux->p_sys = new demux_sys_t(params);
+	p_demux->p_sys = p_sys;
 	p_demux->pf_demux = MagnetMetadataDemux;
 	p_demux->pf_control = MagnetMetadataControl;
 
 	return VLC_SUCCESS;
+
+err:
+	free(p_sys);
+
+	return VLC_EGENERIC;
 }
 
 void
 MagnetMetadataClose(vlc_object_t *p_this)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+	demux_t *p_demux = (demux_t *) p_this;
+
+	free(p_demux->p_sys->magnet);
+	free(p_demux->p_sys);
 }
 
 static int
@@ -107,8 +103,41 @@ MagnetMetadataDemux(demux_t *p_demux)
 
 	msg_Info(p_demux, "Adding download");
 
+	std::string save_path;
+
+	char *vlc_download_dir = config_GetUserDir(VLC_DOWNLOAD_DIR);
+
+	save_path += vlc_download_dir;
+	save_path += DIR_SEP;
+	save_path += "vlc-bittorrent";
+
+	free(vlc_download_dir);
+
+	// Make sure directory exists. This assumes that the VLC_DOWNLOAD_DIR
+	// already exists. Any error here is ignored. Save path error handling
+	// is up to libtorrent to handle in a good way (for now.)
+	vlc_mkdir(save_path.c_str(), 0777);
+
+	add_torrent_params params;
+
+	params.flags &= ~add_torrent_params::flag_auto_managed;
+	params.flags &= ~add_torrent_params::flag_paused;
+	params.save_path = save_path;
+
+	error_code ec;
+
+	parse_magnet_uri(p_demux->p_sys->magnet, params, ec);
+
+	if (ec) {
+		msg_Err(p_demux, "Failed to parse magnet");
+		return -1;
+	}
+
+	msg_Info(p_demux, "magnet is %s", p_demux->p_sys->magnet);
+	msg_Info(p_demux, "save_path is %s", save_path.c_str());
+
 	// Add download and block until metadata is downloaded
-	Download *download = session.add(p_demux->p_sys->params);
+	Download *download = session.add(params);
 
 	if (!download) {
 		msg_Err(p_demux, "Failed to add download");
@@ -117,14 +146,24 @@ MagnetMetadataDemux(demux_t *p_demux)
 
 	msg_Info(p_demux, "Added download");
 
-	// TODO: better path name
-	std::string path = "/tmp/vlc.torrent";
+	std::string dump_path;
 
-	download->dump(path);
+	char *vlc_cache_dir = config_GetUserDir(VLC_CACHE_DIR);
+
+	dump_path += vlc_cache_dir;
+	dump_path += DIR_SEP;
+	dump_path += to_hex(params.info_hash.to_string());
+	dump_path += ".torrent";
+
+	free(vlc_cache_dir);
+
+	msg_Info(p_demux, "dump_path is %s", dump_path.c_str());
+
+	download->dump(dump_path);
 
 	set_playlist(
 		input_GetItem(p_demux->p_input),
-		path,
+		dump_path,
 		download->name(),
 		download->list());
 
