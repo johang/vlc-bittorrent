@@ -18,13 +18,12 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <string>
-#include <atomic>
+#include <fstream>
 
 #include "libtorrent.h"
 #include "vlc.h"
 
 #include "metadata.h"
-#include "download.h"
 #include "playlist.h"
 
 #define D(x)
@@ -33,19 +32,6 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #define STREAM_METADATA_MAX_SIZE (1 * 1024 * 1024)
 
 using namespace libtorrent;
-
-struct demux_sys_t {
-	DownloadSession *session;
-
-	demux_sys_t(DownloadSession *s) : session(s)
-	{
-	}
-
-	~demux_sys_t()
-	{
-		delete session;
-	}
-};
 
 static int
 MetadataDemux(demux_t *p_demux);
@@ -71,7 +57,6 @@ MetadataOpen(vlc_object_t *p_this)
 
 	// TODO: check content-type also
 
-	p_demux->p_sys = new demux_sys_t(new DownloadSession());
 	p_demux->pf_demux = MetadataDemux;
 	p_demux->pf_control = MetadataControl;
 
@@ -82,10 +67,6 @@ void
 MetadataClose(vlc_object_t *p_this)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
-
-	demux_t *p_demux = (demux_t *) p_this;
-
-	delete p_demux->p_sys;
 }
 
 static bool
@@ -131,10 +112,11 @@ MetadataDemux(demux_t *p_demux)
 		return -1;
 	}
 
-	// TODO: just use torrent_info to parse (no need for a session)
-	Download *download = p_demux->p_sys->session->add(buf, buf_sz, false);
+	error_code ec;
 
-	if (!download) {
+	torrent_info metadata(buf, (int) buf_sz, ec, 0);
+
+	if (ec) {
 		msg_Err(p_demux, "Failed to parse");
 		return -1;
 	}
@@ -142,15 +124,28 @@ MetadataDemux(demux_t *p_demux)
 	// TODO: make better path name
 	std::string path = "/tmp/vlc.torrent";
 
-	download->dump(path);
+	create_torrent t(metadata);
+
+	t.set_comment("vlc metadata dump");
+	t.set_creator("vlc");
+
+	// Stream to output metadata to
+	std::ofstream out(path, std::ios_base::binary);
+
+	// Bencode metadata and dump it to file
+	bencode(std::ostream_iterator<char>(out), t.generate());
+
+	std::vector<std::string> files;
+
+	for (int i = 0; i < metadata.num_files(); i++) {
+		files.push_back(metadata.file_at(i).path);
+	}
 
 	set_playlist(
 		input_GetItem(p_demux->p_input),
 		path,
-		download->name(),
-		download->list());
-
-	delete download;
+		metadata.name(),
+		files);
 
 	return 0;
 }
