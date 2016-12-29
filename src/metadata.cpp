@@ -46,16 +46,20 @@ MetadataOpen(vlc_object_t *p_this)
 
 	demux_t *p_demux = (demux_t *) p_this;
 
-	std::string location(p_demux->psz_location ?: "");
-	std::string access(p_demux->psz_access ?: "");
+	bool match = false;
 
-	if (!(access == "file" || access == "http" || access == "https"))
+	if (demux_IsPathExtension(p_demux, ".torrent"))
+		match = true;
+
+	char *type = stream_ContentType(p_demux->s);
+
+	if (type && strcmp(type, "application/x-bittorrent"))
+		match = true;
+
+	free(type);
+
+	if (!match)
 		return VLC_EGENERIC;
-
-	if (location.find(".torrent") == std::string::npos)
-		return VLC_EGENERIC;
-
-	// TODO: check content-type also
 
 	p_demux->pf_demux = MetadataDemux;
 	p_demux->pf_control = MetadataControl;
