@@ -4,6 +4,20 @@
 
 With vlc-bittorrent, you can open a **.torrent** file or **magnet link** with VLC and stream any media that it contains.
 
+## FAQ
+
+### Does it upload while playing?
+
+Yes. It works as a regular Bittorrent client. It will upload as long as it's playing.
+
+### Does it work on Ubuntu/Debian?
+
+Yes!
+
+### Does it work on Windows, Mac OS X, Android, Windows RT, iOS, my toaster?
+
+Probably. I have not tested. It should run since libtorrent works on most systems and the plugin is just standard C and C++. Patches are welcome.
+
 ## Dependencies (on Linux)
 
 * libvlc core ("libvlccore8" in Debian/Ubuntu)
