@@ -89,8 +89,10 @@ SlidingWindowStrategy::loop()
 		try {
 			std::shared_ptr<alert> a = m_queue->remove();
 
-			if (a->type() == piece_finished_alert::alert_type) {
-				if (((torrent_alert *) a.get())->handle == m_handle)
+			if (alert_cast<piece_finished_alert>(a.get())) {
+				auto *b = alert_cast<piece_finished_alert>(a.get());
+
+				if (b->handle == m_handle)
 					move();
 			}
 		} catch (QueueClosedException& e) {
