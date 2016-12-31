@@ -4,6 +4,13 @@
 
 With vlc-bittorrent, you can open a **.torrent** file or **magnet link** with VLC and stream any media that it contains.
 
+## Example usage
+
+    $ vlc video.torrent
+    $ vlc http://example.com/video.torrent
+    $ vlc ftp://example.com/video.torrent
+    $ vlc "magnet:?xt=urn:btih:...&dn=...&tr=..."
+
 ## FAQ
 
 ### Does it upload while playing?
