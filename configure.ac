@@ -9,7 +9,7 @@ AC_PROG_CXX
 AM_INIT_AUTOMAKE
 
 # Check libraries
-PKG_CHECK_MODULES(VLC_PLUGIN, [vlc-plugin >= 1.1.0])
+PKG_CHECK_MODULES(VLC_PLUGIN, [vlc-plugin >= 2.2.0])
 PKG_CHECK_MODULES(LIBTORRENT, libtorrent-rasterbar >= 1.0.0)
 
 # Check libtool
