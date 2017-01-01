@@ -149,9 +149,6 @@ DataSeek(access_t *p_access, uint64_t i_pos)
 	if (!p_access)
 		return VLC_EGENERIC;
 
-	if (!p_access->p_sys)
-		return VLC_EGENERIC;
-
 	p_access->info.i_pos = i_pos;
 	p_access->info.b_eof = false;
 
