@@ -441,8 +441,6 @@ DownloadSession::add(std::string url, bool paused)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-	error_code ec;
-
 	add_torrent_params params;
 
 	if (paused)
