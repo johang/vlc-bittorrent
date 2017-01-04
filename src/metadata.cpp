@@ -53,7 +53,7 @@ MetadataOpen(vlc_object_t *p_this)
 
 	char *type = stream_ContentType(p_demux->s);
 
-	if (type && strcmp(type, "application/x-bittorrent"))
+	if (type && !strcmp(type, "application/x-bittorrent"))
 		match = true;
 
 	free(type);
