@@ -265,19 +265,17 @@ Download::name()
 	return m_handle.torrent_file()->name();
 }
 
-void
-Download::dump(std::string path)
+std::vector<char>
+Download::get_metadata()
 {
+	std::vector<char> md;
+
 	create_torrent t(*m_handle.torrent_file());
 
-	t.set_comment("vlc metadata dump");
-	t.set_creator("vlc");
+	// Stream out metadata to vector
+	bencode(std::back_inserter(md), t.generate());
 
-	// Stream to output metadata to
-	std::ofstream out(path, std::ios_base::binary);
-
-	// Bencode metadata and dump it to file
-	bencode(std::ostream_iterator<char>(out), t.generate());
+	return md;
 }
 
 std::vector<std::string>

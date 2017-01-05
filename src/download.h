@@ -168,10 +168,10 @@ struct Download {
 	~Download();
 
 	/**
-	 * Write metadata to file.
+	 * Get metadata.
 	 */
-	void
-	dump(std::string path);
+	std::vector<char>
+	get_metadata();
 
 	/**
 	 * Get a list of all files.

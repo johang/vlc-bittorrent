@@ -30,78 +30,54 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace libtorrent;
 
-struct demux_sys_t {
-	char *magnet;
+struct access_sys_t {
+	stream_t *stream;
 };
 
-static int
-MagnetMetadataDemux(demux_t *p_demux);
+static ssize_t
+MagnetMetadataRead(access_t *p_access, uint8_t *p_buffer, size_t i_len);
 
 static int
-MagnetMetadataControl(demux_t *demux, int query, va_list args);
+MagnetMetadataControl(access_t *access, int query, va_list args);
 
 int
 MagnetMetadataOpen(vlc_object_t *p_this)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-	demux_t *p_demux = (demux_t *) p_this;
+	access_t *p_access = (access_t *) p_this;
 
-	std::string access(p_demux->psz_access ?: "");
-	std::string location(p_demux->psz_location ?: "");
-	std::string demux(p_demux->psz_demux ?: "");
-	std::string file(p_demux->psz_file ?: "");
+	std::string access(p_access->psz_access ?: "");
+	std::string demux(p_access->psz_demux ?: "");
+	std::string filepath(p_access->psz_filepath ?: "");
+	std::string location(p_access->psz_location ?: "");
 
-	demux_sys_t *p_sys = (demux_sys_t *) malloc(sizeof (struct demux_sys_t));
+	std::string magnet;
 
-	size_t indexf = file.rfind("magnet:?");
-	size_t indexl = location.rfind("magnet:?");
+	if (access == "magnet" && demux == "any") {
+		magnet = "magnet:" + location;
+	} else if (access == "file" && demux == "any") {
+		size_t index = filepath.rfind("magnet:?");
 
-	if (indexf != std::string::npos) {
-		p_sys->magnet = decode_URI_duplicate(location.substr(indexf).c_str());
-	} else {
-		if (indexl != std::string::npos) {
-			p_sys->magnet = strdup(file.substr(indexl).c_str());
+		if (index != std::string::npos) {
+			magnet = filepath.substr(index);
 		} else {
-			goto err;
+			return VLC_EGENERIC;
 		}
+	} else {
+		return VLC_EGENERIC;
 	}
 
-	msg_Info(p_demux, "Magnet is %s", p_sys->magnet);
+	error_code ec;
 
-	p_demux->p_sys = p_sys;
-	p_demux->pf_demux = MagnetMetadataDemux;
-	p_demux->pf_control = MagnetMetadataControl;
+	add_torrent_params params;
 
-	return VLC_SUCCESS;
+	parse_magnet_uri(magnet, params, ec);
 
-err:
-	free(p_sys);
-
-	return VLC_EGENERIC;
-}
-
-void
-MagnetMetadataClose(vlc_object_t *p_this)
-{
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
-
-	demux_t *p_demux = (demux_t *) p_this;
-
-	free(p_demux->p_sys->magnet);
-	free(p_demux->p_sys);
-}
-
-static int
-MagnetMetadataDemux(demux_t *p_demux)
-{
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
-
-	msg_Info(p_demux, "Starting session");
-
-	DownloadSession session;
-
-	msg_Info(p_demux, "Adding download");
+	if (ec) {
+		msg_Err(p_access, "Found magnet URI but couldn't parse it");
+		return VLC_EGENERIC;
+	}
 
 	std::string save_path;
 
@@ -118,79 +94,100 @@ MagnetMetadataDemux(demux_t *p_demux)
 	// is up to libtorrent to handle in a good way (for now.)
 	vlc_mkdir(save_path.c_str(), 0777);
 
-	add_torrent_params params;
-
 	params.flags &= ~add_torrent_params::flag_auto_managed;
 	params.flags &= ~add_torrent_params::flag_paused;
 	params.save_path = save_path;
 
-	error_code ec;
+	DownloadSession session;
 
-	parse_magnet_uri(p_demux->p_sys->magnet, params, ec);
-
-	if (ec) {
-		msg_Err(p_demux, "Failed to parse magnet");
-		return -1;
-	}
-
-	msg_Info(p_demux, "magnet is %s", p_demux->p_sys->magnet);
-	msg_Info(p_demux, "save_path is %s", save_path.c_str());
+	msg_Dbg(p_access, "Adding download");
 
 	// Add download and block until metadata is downloaded
 	Download *download = session.add(params);
 
 	if (!download) {
-		msg_Err(p_demux, "Failed to add download");
-		return -1;
+		msg_Err(p_access, "Failed to add download");
+		return VLC_EGENERIC;
 	}
 
-	msg_Info(p_demux, "Added download");
+	msg_Dbg(p_access, "Added download");
 
-	std::string dump_path;
+	std::vector<char> md = download->get_metadata();
 
-	char *vlc_cache_dir = config_GetUserDir(VLC_CACHE_DIR);
-
-	dump_path += vlc_cache_dir;
-	dump_path += DIR_SEP;
-	dump_path += to_hex(params.info_hash.to_string());
-	dump_path += ".torrent";
-
-	free(vlc_cache_dir);
-
-	msg_Info(p_demux, "dump_path is %s", dump_path.c_str());
-
-	download->dump(dump_path);
-
-	set_playlist(
-		input_GetItem(p_demux->p_input),
-		dump_path,
-		download->name(),
-		download->list());
-
-	msg_Info(p_demux, "Stopping session");
+	msg_Dbg(p_access, "Got metadata (%zu bytes)", md.size());
 
 	delete download;
 
-	return 1;
+	access_sys_t *p_sys = (access_sys_t *) malloc(sizeof (access_sys_t));
+
+	p_sys->stream = stream_MemoryNew(
+		p_this,
+		(uint8_t *) memcpy(
+			malloc(md.size()),
+			md.data(),
+			md.size()),
+		md.size(),
+		true);
+
+	p_access->p_sys = p_sys;
+	p_access->pf_read = MagnetMetadataRead;
+	p_access->pf_control = MagnetMetadataControl;
+
+	return VLC_SUCCESS;
 }
 
-static int
-MagnetMetadataControl(demux_t *demux, int query, va_list args)
+void
+MagnetMetadataClose(vlc_object_t *p_this)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
+	access_t *p_access = (access_t *) p_this;
+
+	if (!p_access->p_sys)
+		return;
+
+	if (!p_access->p_sys->stream)
+		return;
+
+    stream_Delete(p_access->p_sys->stream);
+
+	free(p_access->p_sys);
+}
+
+static ssize_t
+MagnetMetadataRead(access_t *p_access, uint8_t *p_buffer, size_t i_len)
+{
+	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+	if (!p_access->p_sys)
+		return -1;
+
+	if (!p_access->p_sys->stream)
+		return -1;
+
+	return stream_Read(p_access->p_sys->stream, p_buffer, (int) i_len);
+}
+
+static int
+MagnetMetadataControl(access_t *access, int query, va_list args)
+{
+	D(printf("%s:%d: %s(0x%x)\n", __FILE__, __LINE__, __func__, query));
+
 	switch (query) {
-	case DEMUX_GET_PTS_DELAY:
+	case ACCESS_GET_PTS_DELAY:
 		*va_arg(args, int64_t *) = DEFAULT_PTS_DELAY;
 		break;
-	case DEMUX_CAN_SEEK:
+	case ACCESS_CAN_SEEK:
 		*va_arg(args, bool *) = false;
 		break;
-	case DEMUX_CAN_PAUSE:
+	case ACCESS_CAN_PAUSE:
 		*va_arg(args, bool *) = false;
 		break;
-	case DEMUX_CAN_CONTROL_PACE:
-		*va_arg(args, bool *) = false;
+	case ACCESS_CAN_CONTROL_PACE:
+		*va_arg(args, bool *) = true;
+		break;
+	case ACCESS_GET_CONTENT_TYPE:
+		*va_arg(args, char **) = strdup("application/x-bittorrent");
 		break;
 	default:
 		return VLC_EGENERIC;

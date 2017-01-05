@@ -49,8 +49,8 @@ vlc_module_begin()
 		   containing special URLs in the form
 		   bittorrent:///path/to/metadata.torrent?file.ext that the data
 		   access submodule can handle. */
-		set_description("Bittorrent magnet metadata access demux")
-		set_capability("access_demux", 1)
+		set_description("Bittorrent magnet metadata access")
+		set_capability("access", 60)
 		add_shortcut("file", "magnet")
 		set_callbacks(MagnetMetadataOpen, MagnetMetadataClose)
 vlc_module_end()
