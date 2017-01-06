@@ -33,20 +33,14 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 using namespace libtorrent;
 
 struct access_sys_t {
-	DownloadSession *session = NULL;
+	DownloadSession *session;
 
-	Download *download = NULL;
+	Download *download;
 
 	/**
 	 * Index of the opened file
 	 */
-	int index = 0;
-
-	~access_sys_t()
-	{
-		delete download;
-		delete session;
-	}
+	int index;
 };
 
 static int
@@ -93,7 +87,7 @@ DataOpen(vlc_object_t *p_this)
 	std::string file(location.substr(query + 1));
 	std::string metadata("file:///" + location.substr(0, query));
 
-	access_sys_t *sys = new access_sys_t();
+	access_sys_t *sys = (access_sys_t *) malloc(sizeof (struct access_sys_t));
 
 	msg_Dbg(p_access, "Adding download");
 
@@ -123,7 +117,10 @@ DataOpen(vlc_object_t *p_this)
 	return VLC_SUCCESS;
 
 err:
-	delete sys;
+	delete sys->download;
+	delete sys->session;
+
+	free(sys);
 
 	return VLC_EGENERIC;
 }
@@ -138,7 +135,10 @@ DataClose(vlc_object_t *p_this)
 	if (!p_access)
 		return;
 
-	delete p_access->p_sys;
+	delete p_access->p_sys->download;
+	delete p_access->p_sys->session;
+
+	free(p_access->p_sys);
 }
 
 static int
