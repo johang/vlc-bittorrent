@@ -45,10 +45,8 @@ vlc_module_begin()
 		add_shortcut("file", "http")
 		set_callbacks(MetadataOpen, MetadataClose)
 	add_submodule()
-		/* This module takes a metadata magnet URI and outputs a playlist
-		   containing special URLs in the form
-		   bittorrent:///path/to/metadata.torrent?file.ext that the data
-		   access submodule can handle. */
+		/* This module takes a metadata magnet URI and outputs a bittorrent
+		   metadata that the metadata demux submodule can handle. */
 		set_description("Bittorrent magnet metadata access")
 		set_capability("access", 60)
 		add_shortcut("file", "magnet")
