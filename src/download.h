@@ -217,12 +217,6 @@ struct DownloadSession {
 	Download*
 	add(libtorrent::add_torrent_params params);
 
-	Download*
-	add(std::string url, bool paused = false);
-
-	Download*
-	add(char *buf, size_t buflen, bool paused = false);
-
 	/**
 	 * Subscribe to all events emitted from this session.
 	 */

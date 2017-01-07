@@ -32,7 +32,7 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #include "data.h"
 #include "playlist.h"
 
-#define D(x)
+#define D(x) x
 #define DD(x)
 
 #define LIBTORRENT_ADD_TORRENT_FLAGS ( \
@@ -316,6 +316,12 @@ DownloadSession::DownloadSession()
 		LIBTORRENT_ADD_TORRENT_FLAGS,
 		LIBTORRENT_ADD_TORRENT_ALERTS);
 
+	// TODO: convert to using settings_pack
+
+	// TODO: set stop_tracker_timeout
+
+	// TODO: set request_timeout, piece_timeout
+
 	session_settings ss = m_session->settings();
 
 	ss.strict_end_game_mode = false;
@@ -375,6 +381,8 @@ DownloadSession::add(add_torrent_params params)
 		try {
 			std::shared_ptr<alert> a = queue->remove();
 
+			std::cout << a->message() << std::endl;
+
 			if (alert_cast<state_changed_alert>(a.get())) {
 				auto *b = alert_cast<state_changed_alert>(a.get());
 
@@ -401,57 +409,6 @@ DownloadSession::add(add_torrent_params params)
 	}
 
 	return NULL;
-}
-
-Download*
-DownloadSession::add(char *buf, size_t buflen, bool paused)
-{
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
-
-	error_code ec;
-
-	add_torrent_params params;
-
-	if (paused)
-		params.flags |= add_torrent_params::flag_paused;
-	else
-		params.flags &= ~add_torrent_params::flag_paused;
-
-	params.flags &= ~add_torrent_params::flag_auto_managed;
-	params.save_path = "/tmp";
-#if LIBTORRENT_VERSION_NUM < 10100
-	params.ti = new torrent_info(buf, (int) buflen, ec);
-#else
-	params.ti = boost::make_shared<torrent_info>(buf, (int) buflen,
-		std::ref(ec));
-#endif
-
-	if (ec) {
-		std::cout << "Failed to parse metadata buffer" << std::endl;
-		return NULL;
-	}
-
-	return add(params);
-}
-
-Download*
-DownloadSession::add(std::string url, bool paused)
-{
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
-
-	add_torrent_params params;
-
-	if (paused)
-		params.flags |= add_torrent_params::flag_paused;
-	else
-		params.flags &= ~add_torrent_params::flag_paused;
-
-	params.flags &= ~add_torrent_params::flag_auto_managed;
-	params.flags &= ~add_torrent_params::flag_paused;
-	params.save_path = "/tmp";
-	params.url = url;
-
-	return add(params);
 }
 
 std::shared_ptr<AFIFO>
