@@ -92,7 +92,28 @@ DataOpen(vlc_object_t *p_this)
 	msg_Dbg(p_access, "Adding download");
 
 	sys->session = new DownloadSession();
-	sys->download = sys->session->add(metadata);
+
+	std::string save_path;
+
+	char *vlc_download_dir = config_GetUserDir(VLC_DOWNLOAD_DIR);
+
+	save_path += vlc_download_dir;
+	save_path += DIR_SEP;
+	save_path += "vlc-bittorrent";
+
+	free(vlc_download_dir);
+
+	vlc_mkdir(vlc_download_dir, 0777);
+	vlc_mkdir(save_path.c_str(), 0777);
+
+	add_torrent_params params;
+
+	params.flags &= ~add_torrent_params::flag_auto_managed;
+	params.flags &= ~add_torrent_params::flag_paused;
+	params.save_path = save_path;
+	params.url = metadata;
+
+	sys->download = sys->session->add(params);
 
 	if (!sys->download) {
 		msg_Err(p_access, "Add download");
