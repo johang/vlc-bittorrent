@@ -8,12 +8,14 @@ With vlc-bittorrent, you can open a **.torrent** file or **magnet link** with VL
 
     $ vlc video.torrent
     $ vlc http://example.com/video.torrent
+    $ vlc https://example.com/video.torrent
     $ vlc ftp://example.com/video.torrent
     $ vlc "magnet:?xt=urn:btih:...&dn=...&tr=..."
+    $ vlc "magnet://?xt=urn:btih:...&dn=...&tr=..."
 
 ## FAQ
 
-### Does it upload while playing?
+### Does it upload/share/seed while playing?
 
 Yes. It works as a regular Bittorrent client. It will upload as long as it's playing.
 
