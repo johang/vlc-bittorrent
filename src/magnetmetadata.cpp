@@ -89,9 +89,7 @@ MagnetMetadataOpen(vlc_object_t *p_this)
 
 	free(vlc_download_dir);
 
-	// Make sure directory exists. This assumes that the VLC_DOWNLOAD_DIR
-	// already exists. Any error here is ignored. Save path error handling
-	// is up to libtorrent to handle in a good way (for now.)
+	vlc_mkdir(vlc_download_dir, 0777);
 	vlc_mkdir(save_path.c_str(), 0777);
 
 	params.flags &= ~add_torrent_params::flag_auto_managed;
