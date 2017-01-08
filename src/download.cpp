@@ -32,7 +32,7 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #include "data.h"
 #include "playlist.h"
 
-#define D(x) x
+#define D(x)
 #define DD(x)
 
 #define LIBTORRENT_ADD_TORRENT_FLAGS ( \
@@ -380,8 +380,6 @@ DownloadSession::add(add_torrent_params params)
 	while (!queue->is_closed()) {
 		try {
 			std::shared_ptr<alert> a = queue->remove();
-
-			std::cout << a->message() << std::endl;
 
 			if (alert_cast<state_changed_alert>(a.get())) {
 				auto *b = alert_cast<state_changed_alert>(a.get());
