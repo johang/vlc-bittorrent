@@ -303,6 +303,7 @@ DownloadSession::DownloadSession()
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
+#if LIBTORRENT_VERSION_NUM < 10100
 	// TODO: proper version
 	m_session = new session(
 		fingerprint(
@@ -316,12 +317,6 @@ DownloadSession::DownloadSession()
 		LIBTORRENT_ADD_TORRENT_FLAGS,
 		LIBTORRENT_ADD_TORRENT_ALERTS);
 
-	// TODO: convert to using settings_pack
-
-	// TODO: set stop_tracker_timeout
-
-	// TODO: set request_timeout, piece_timeout
-
 	session_settings ss = m_session->settings();
 
 	ss.strict_end_game_mode = false;
@@ -329,6 +324,20 @@ DownloadSession::DownloadSession()
 	ss.announce_to_all_tiers = true;
 
 	m_session->set_settings(ss);
+#else
+	settings_pack p;
+
+	p.set_int(settings_pack::alert_mask, LIBTORRENT_ADD_TORRENT_ALERTS);
+	p.set_bool(settings_pack::strict_end_game_mode, false);
+	p.set_bool(settings_pack::announce_to_all_trackers, true);
+	p.set_bool(settings_pack::announce_to_all_tiers, true);
+
+	// TODO: set stop_tracker_timeout
+
+	// TODO: set request_timeout, piece_timeout
+
+	m_session = new session(p, LIBTORRENT_ADD_TORRENT_FLAGS);
+#endif
 
 	m_session->add_dht_router(std::make_pair(
 		"router.bittorrent.com", 6881));
