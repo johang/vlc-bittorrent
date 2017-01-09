@@ -331,10 +331,8 @@ DownloadSession::DownloadSession()
 	p.set_bool(settings_pack::strict_end_game_mode, false);
 	p.set_bool(settings_pack::announce_to_all_trackers, true);
 	p.set_bool(settings_pack::announce_to_all_tiers, true);
-
-	// TODO: set stop_tracker_timeout
-
-	// TODO: set request_timeout, piece_timeout
+	p.set_int(settings_pack::stop_tracker_timeout, 1);
+	p.set_int(settings_pack::piece_timeout, 20);
 
 	m_session = new session(p, LIBTORRENT_ADD_TORRENT_FLAGS);
 #endif
