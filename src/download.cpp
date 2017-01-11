@@ -292,7 +292,6 @@ Download::list()
 #endif
 
 	for (int i = 0; i < ti->num_files(); i++) {
-		// TODO: add size here also
 		files.push_back(ti->file_at(i).path);
 	}
 
