@@ -5,8 +5,7 @@ libaccess_bittorrent_plugin_la_SOURCES = \
 	metadata.cpp \
 	magnetmetadata.cpp \
 	data.cpp \
-	download.cpp \
-	playlist.cpp
+	download.cpp
 libaccess_bittorrent_plugin_la_CXXFLAGS = \
 	-std=c++11 \
 	-Wno-deprecated-declarations \

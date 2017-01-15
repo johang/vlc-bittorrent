@@ -30,7 +30,6 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #include "metadata.h"
 #include "magnetmetadata.h"
 #include "data.h"
-#include "playlist.h"
 
 #define D(x)
 #define DD(x)

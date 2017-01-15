@@ -19,12 +19,12 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <string>
 #include <fstream>
+#include <vector>
 
 #include "libtorrent.h"
 #include "vlc.h"
 
 #include "metadata.h"
-#include "playlist.h"
 
 #define D(x)
 
@@ -101,6 +101,42 @@ read_stream(stream_t *p_stream, char **buf, size_t *buf_sz)
 	}
 
 	return *buf_sz > 0;
+}
+
+static void
+set_playlist(input_item_t *p_input_item, std::string path, std::string name,
+		std::vector<std::string> files)
+{
+	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+	// How many characters to remove from the beginning of each title
+	size_t offset = (files.size() > 1) ? name.length() : 0;
+
+	input_item_node_t *p_subitems = input_item_node_Create(p_input_item);
+
+	for (std::vector<std::string>::iterator i = files.begin();
+			i != files.end(); ++i) {
+		std::string item_path;
+
+		item_path += "bittorrent://";
+		item_path += path;
+		item_path += "?";
+		item_path += *i;
+
+		std::string item_title((*i).substr(offset));
+
+		// Create an item for each file
+		input_item_t *p_input = input_item_New(
+			item_path.c_str(),
+			item_title.c_str());
+
+		// Add the item to the playlist
+		input_item_node_AppendItem(p_subitems, p_input);
+
+		vlc_gc_decref(p_input);
+	}
+
+	input_item_node_PostAndDelete(p_subitems);
 }
 
 static int
