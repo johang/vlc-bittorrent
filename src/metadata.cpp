@@ -161,8 +161,16 @@ MetadataDemux(demux_t *p_demux)
 		return -1;
 	}
 
-	// TODO: make better path name
-	std::string path = "/tmp/vlc.torrent";
+	std::string path;
+
+	char *vlc_cache_dir = config_GetUserDir(VLC_CACHE_DIR);
+
+	path += vlc_cache_dir;
+	path += DIR_SEP;
+	path += to_hex(metadata.info_hash().to_string());
+	path += ".torrent";
+
+	free(vlc_cache_dir);
 
 	create_torrent t(metadata);
 
