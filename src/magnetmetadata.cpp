@@ -86,10 +86,10 @@ MagnetMetadataOpen(vlc_object_t *p_this)
 	save_path += DIR_SEP;
 	save_path += "vlc-bittorrent";
 
-	free(vlc_download_dir);
-
 	vlc_mkdir(vlc_download_dir, 0777);
 	vlc_mkdir(save_path.c_str(), 0777);
+
+	free(vlc_download_dir);
 
 	params.flags &= ~add_torrent_params::flag_auto_managed;
 	params.flags &= ~add_torrent_params::flag_paused;
