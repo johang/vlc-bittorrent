@@ -20,6 +20,7 @@ git clone --depth 1 https://git.videolan.org/git/vlc/${1:-vlc}.git vlc &&
 cd vlc &&
 ./bootstrap &&
 ./configure --prefix="${2:-/tmp}" \
+            --enable-debug \
             --disable-lua \
             --disable-avcodec \
             --disable-swscale \

@@ -34,28 +34,27 @@ struct access_sys_t {
 };
 
 static ssize_t
-MagnetMetadataRead(access_t *p_access, uint8_t *p_buffer, size_t i_len);
+MagnetMetadataRead(stream_t *p_access, void *p_buffer, size_t i_len);
 
 static int
-MagnetMetadataControl(access_t *access, int query, va_list args);
+MagnetMetadataControl(stream_t *access, int query, va_list args);
 
 int
 MagnetMetadataOpen(vlc_object_t *p_this)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-	access_t *p_access = (access_t *) p_this;
+	stream_t *p_access = (stream_t *) p_this;
 
-	std::string access(p_access->psz_access ?: "");
-	std::string demux(p_access->psz_demux ?: "");
+	std::string name(p_access->psz_name ?: "");
 	std::string filepath(p_access->psz_filepath ?: "");
 	std::string location(p_access->psz_location ?: "");
 
 	std::string magnet;
 
-	if (access == "magnet" && demux == "any") {
+	if (name == "magnet") {
 		magnet = "magnet:" + location;
-	} else if (access == "file" && demux == "any") {
+	} else if (name == "file") {
 		size_t index = filepath.rfind("magnet:?");
 
 		if (index != std::string::npos) {
@@ -117,7 +116,7 @@ MagnetMetadataOpen(vlc_object_t *p_this)
 
 	access_sys_t *p_sys = (access_sys_t *) malloc(sizeof (access_sys_t));
 
-	p_sys->stream = stream_MemoryNew(
+	p_sys->stream = vlc_stream_MemoryNew(
 		p_this,
 		(uint8_t *) memcpy(
 			malloc(md.size()),
@@ -138,52 +137,58 @@ MagnetMetadataClose(vlc_object_t *p_this)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-	access_t *p_access = (access_t *) p_this;
+	stream_t *p_access = (stream_t *) p_this;
 
 	if (!p_access->p_sys)
 		return;
 
-	if (!p_access->p_sys->stream)
+	access_sys_t *p_sys = (access_sys_t *) p_access->p_sys;
+
+	if (!p_sys->stream)
 		return;
 
-    stream_Delete(p_access->p_sys->stream);
+    vlc_stream_Delete(p_sys->stream);
 
-	free(p_access->p_sys);
+	free(p_sys);
 }
 
 static ssize_t
-MagnetMetadataRead(access_t *p_access, uint8_t *p_buffer, size_t i_len)
+MagnetMetadataRead(stream_t *p_access, void *p_buffer, size_t i_len)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
 	if (!p_access->p_sys)
 		return -1;
 
-	if (!p_access->p_sys->stream)
+	access_sys_t *p_sys = (access_sys_t *) p_access->p_sys;
+
+	if (!p_sys->stream)
 		return -1;
 
-	return stream_Read(p_access->p_sys->stream, p_buffer, (int) i_len);
+	ssize_t x = vlc_stream_Read(p_sys->stream, p_buffer, i_len);
+
+	return x;
 }
 
 static int
-MagnetMetadataControl(access_t *access, int query, va_list args)
+MagnetMetadataControl(stream_t *access, int query, va_list args)
 {
 	D(printf("%s:%d: %s(0x%x)\n", __FILE__, __LINE__, __func__, query));
 
 	switch (query) {
-	case ACCESS_GET_PTS_DELAY:
+	case STREAM_GET_PTS_DELAY:
 		*va_arg(args, int64_t *) = DEFAULT_PTS_DELAY;
 		break;
-	case ACCESS_CAN_SEEK:
+	case STREAM_CAN_SEEK:
 		*va_arg(args, bool *) = false;
 		break;
-	case ACCESS_CAN_PAUSE:
+	case STREAM_CAN_PAUSE:
 		*va_arg(args, bool *) = false;
 		break;
-	case ACCESS_CAN_CONTROL_PACE:
+	case STREAM_CAN_CONTROL_PACE:
 		*va_arg(args, bool *) = true;
 		break;
-	case ACCESS_GET_CONTENT_TYPE:
+	case STREAM_GET_CONTENT_TYPE:
 		*va_arg(args, char **) = strdup("application/x-bittorrent");
 		break;
 	default:

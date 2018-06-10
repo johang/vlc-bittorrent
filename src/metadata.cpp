@@ -28,7 +28,7 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 
 #define D(x)
 
-#define STREAM_BLOCK_MAX_SIZE (32 * 1024)
+#define STREAM_BLOCK_MAX_SIZE (1 * 1024)
 #define STREAM_METADATA_MAX_SIZE (1 * 1024 * 1024)
 
 using namespace libtorrent;
@@ -37,40 +37,37 @@ static int
 MetadataDemux(demux_t *p_demux);
 
 static int
-MetadataControl(demux_t *demux, int query, va_list args);
+MetadataReadDir(stream_t *p_demux, input_item_node_t *p_subitems);
 
-int
-MetadataOpen(vlc_object_t *p_this)
+static int ReadDVD( stream_t *, input_item_node_t * );
+static int ReadDVD_VR( stream_t *, input_item_node_t * );
+
+int MetadataOpen(vlc_object_t *p_this)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-	demux_t *p_demux = (demux_t *) p_this;
+	stream_t *p_stream = (stream_t *) p_this;
+
+	p_stream->pf_readdir = MetadataReadDir;
+	p_stream->pf_control = access_vaDirectoryControlHelper;
 
 	bool match = false;
 
-	if (demux_IsPathExtension(p_demux, ".torrent"))
+	if (stream_HasExtension(p_stream->p_source, ".torrent"))
 		match = true;
 
-	char *type = stream_ContentType(p_demux->s);
-
-	if (type && !strcmp(type, "application/x-bittorrent"))
+	if (stream_IsMimeType(p_stream->p_source, "application/x-bittorrent"))
 		match = true;
 
-	free(type);
+    const uint8_t *p_peek = NULL;
+    ssize_t i_peek = vlc_stream_Peek(p_stream->p_source, &p_peek, 1);
 
-	if (!match)
-		return VLC_EGENERIC;
+	/* All bittorrent metadata files starts with a 'd' */
+    if (i_peek < 1 || memcmp(p_peek, "d", 1)) {
+        return VLC_EGENERIC;
+	}
 
-	p_demux->pf_demux = MetadataDemux;
-	p_demux->pf_control = MetadataControl;
-
-	return VLC_SUCCESS;
-}
-
-void
-MetadataClose(vlc_object_t *p_this)
-{
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+    return match ? VLC_SUCCESS : VLC_EGENERIC;
 }
 
 static bool
@@ -81,10 +78,15 @@ read_stream(stream_t *p_stream, char **buf, size_t *buf_sz)
 	*buf_sz = 0;
 	*buf = NULL;
 
-	block_t *block = stream_Block(p_stream, STREAM_BLOCK_MAX_SIZE);
+	p_stream = p_stream->p_source;
 
-	for (; block && *buf_sz < STREAM_METADATA_MAX_SIZE;
-			block = stream_Block(p_stream, STREAM_BLOCK_MAX_SIZE)) {
+	while (!vlc_stream_Eof(p_stream)) {
+		block_t *block = vlc_stream_Block(p_stream, STREAM_BLOCK_MAX_SIZE);
+
+		// That function can return NULL spuriously
+		if (!block)
+			continue;
+
 		D(printf("%s:%d: %s(): read %lu bytes\n", __FILE__, __LINE__,
 			__func__, block->i_buffer));
 
@@ -103,62 +105,16 @@ read_stream(stream_t *p_stream, char **buf, size_t *buf_sz)
 	return *buf_sz > 0;
 }
 
-static void
-set_playlist(input_item_t *p_input_item, std::string path, std::string name,
-		std::vector<std::string> files)
+static bool
+build_playlist(stream_t *p_demux, input_item_node_t *p_subitems, char *buf,
+		size_t buf_sz)
 {
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
-
-	// How many characters to remove from the beginning of each title
-	size_t offset = (files.size() > 1) ? name.length() : 0;
-
-	input_item_node_t *p_subitems = input_item_node_Create(p_input_item);
-
-	for (std::vector<std::string>::iterator i = files.begin();
-			i != files.end(); ++i) {
-		std::string item_path;
-
-		item_path += "bittorrent://";
-		item_path += path;
-		item_path += "?";
-		item_path += *i;
-
-		std::string item_title((*i).substr(offset));
-
-		// Create an item for each file
-		input_item_t *p_input = input_item_New(
-			item_path.c_str(),
-			item_title.c_str());
-
-		// Add the item to the playlist
-		input_item_node_AppendItem(p_subitems, p_input);
-
-		vlc_gc_decref(p_input);
-	}
-
-	input_item_node_PostAndDelete(p_subitems);
-}
-
-static int
-MetadataDemux(demux_t *p_demux)
-{
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
-
-	char *buf = NULL;
-	size_t buf_sz = 0;
-
-	if (!read_stream(p_demux->s, &buf, &buf_sz)) {
-		msg_Err(p_demux, "Stream was empty");
-		return -1;
-	}
-
 	error_code ec;
 
 	torrent_info metadata(buf, (int) buf_sz, ec, 0);
 
 	if (ec) {
-		msg_Err(p_demux, "Failed to parse");
-		return -1;
+		return false;
 	}
 
 	std::string path;
@@ -167,7 +123,8 @@ MetadataDemux(demux_t *p_demux)
 
 	path += vlc_cache_dir;
 	path += DIR_SEP;
-	path += to_hex(metadata.info_hash().to_string());
+	//path += to_hex(metadata.info_hash().to_string());
+	path += "metadata";
 	path += ".torrent";
 
 	free(vlc_cache_dir);
@@ -189,36 +146,59 @@ MetadataDemux(demux_t *p_demux)
 		files.push_back(metadata.file_at(i).path);
 	}
 
-	set_playlist(
-		input_GetItem(p_demux->p_input),
-		path,
-		metadata.name(),
-		files);
+	input_item_t *p_current_input = input_GetItem(p_demux->p_input);
 
-	return 0;
+	// How many characters to remove from the beginning of each title
+	size_t offset = (files.size() > 1) ? metadata.name().length() : 0;
+
+	for (std::vector<std::string>::iterator i = files.begin();
+			i != files.end(); ++i) {
+		std::string item_path;
+
+		item_path += "bittorrent://";
+		item_path += path;
+		item_path += "?";
+		item_path += *i;
+
+		std::cout << "XXXXXXXXXXXXXXXXXX" << item_path << std::endl;
+
+		std::string item_title((*i).substr(offset));
+
+		// Create an item for each file
+		input_item_t *p_input = input_item_New(
+			item_path.c_str(),
+			item_title.c_str());
+
+        input_item_CopyOptions(p_input, p_current_input);
+
+		// Add the item to the playlist
+		input_item_node_AppendItem(p_subitems, p_input);
+
+		input_item_Release(p_input);
+	}
+
+	return true;
 }
 
 static int
-MetadataControl(demux_t *demux, int query, va_list args)
+MetadataReadDir(stream_t *p_demux, input_item_node_t *p_subitems)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-	switch (query) {
-	case DEMUX_GET_PTS_DELAY:
-		*va_arg(args, int64_t *) = DEFAULT_PTS_DELAY;
-		break;
-	case DEMUX_CAN_SEEK:
-		*va_arg(args, bool *) = false;
-		break;
-	case DEMUX_CAN_PAUSE:
-		*va_arg(args, bool *) = false;
-		break;
-	case DEMUX_CAN_CONTROL_PACE:
-		*va_arg(args, bool *) = false;
-		break;
-	default:
-		return VLC_EGENERIC;
+	char *buf = NULL;
+	size_t buf_sz = 0;
+
+	if (!read_stream(p_demux, &buf, &buf_sz)) {
+		msg_Err(p_demux, "Stream was empty");
+		return -1;
 	}
 
-	return VLC_SUCCESS;
+	if (!build_playlist(p_demux, p_subitems, buf, buf_sz)) {
+		msg_Err(p_demux, "Failed to parse stream");
+		return -1;
+	}
+
+	free(buf);
+
+	return 0;
 }

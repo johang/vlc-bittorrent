@@ -41,9 +41,8 @@ vlc_module_begin()
 		   bittorrent:///path/to/metadata.torrent?file.ext that the data
 		   access submodule can handle. */
 		set_description("Bittorrent file/HTTP/HTTPS metadata demux")
-		set_capability("demux", 50)
-		add_shortcut("file", "http")
-		set_callbacks(MetadataOpen, MetadataClose)
+		set_capability("stream_filter", 50)
+		set_callbacks(MetadataOpen, NULL)
 	add_submodule()
 		/* This module takes a metadata magnet URI and outputs a bittorrent
 		   metadata that the metadata demux submodule can handle. */
