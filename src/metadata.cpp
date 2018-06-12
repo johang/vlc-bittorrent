@@ -59,15 +59,16 @@ int MetadataOpen(vlc_object_t *p_this)
 	if (stream_IsMimeType(p_stream->p_source, "application/x-bittorrent"))
 		match = true;
 
-    const uint8_t *p_peek = NULL;
-    ssize_t i_peek = vlc_stream_Peek(p_stream->p_source, &p_peek, 1);
+	const uint8_t *data = NULL;
 
-	/* All bittorrent metadata files starts with a 'd' */
-    if (i_peek < 1 || memcmp(p_peek, "d", 1)) {
-        return VLC_EGENERIC;
-	}
+	// Attempt to read 1 byte of the metadata
+	ssize_t len = vlc_stream_Peek(p_stream->p_source, &data, 1);
 
-    return match ? VLC_SUCCESS : VLC_EGENERIC;
+	// All bittorrent metadata files starts with a 'd'
+	if (len < 1 || memcmp(data, "d", 1))
+		return VLC_EGENERIC;
+
+	return match ? VLC_SUCCESS : VLC_EGENERIC;
 }
 
 static bool
@@ -113,9 +114,8 @@ build_playlist(stream_t *p_demux, input_item_node_t *p_subitems, char *buf,
 
 	torrent_info metadata(buf, (int) buf_sz, ec, 0);
 
-	if (ec) {
+	if (ec)
 		return false;
-	}
 
 	std::string path;
 
@@ -123,7 +123,7 @@ build_playlist(stream_t *p_demux, input_item_node_t *p_subitems, char *buf,
 
 	path += vlc_cache_dir;
 	path += DIR_SEP;
-	//path += to_hex(metadata.info_hash().to_string());
+	path += to_hex(metadata.info_hash().to_string());
 	path += "metadata";
 	path += ".torrent";
 
@@ -160,8 +160,6 @@ build_playlist(stream_t *p_demux, input_item_node_t *p_subitems, char *buf,
 		item_path += "?";
 		item_path += *i;
 
-		std::cout << "XXXXXXXXXXXXXXXXXX" << item_path << std::endl;
-
 		std::string item_title((*i).substr(offset));
 
 		// Create an item for each file
@@ -169,7 +167,7 @@ build_playlist(stream_t *p_demux, input_item_node_t *p_subitems, char *buf,
 			item_path.c_str(),
 			item_title.c_str());
 
-        input_item_CopyOptions(p_input, p_current_input);
+		input_item_CopyOptions(p_input, p_current_input);
 
 		// Add the item to the playlist
 		input_item_node_AppendItem(p_subitems, p_input);
