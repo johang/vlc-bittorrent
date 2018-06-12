@@ -147,7 +147,7 @@ MagnetMetadataClose(vlc_object_t *p_this)
 	if (!p_sys->stream)
 		return;
 
-    vlc_stream_Delete(p_sys->stream);
+	vlc_stream_Delete(p_sys->stream);
 
 	free(p_sys);
 }
