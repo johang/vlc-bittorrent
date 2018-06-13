@@ -17,7 +17,9 @@
 #include <libtorrent/hex.hpp>
 #endif
 #include <libtorrent/sha1_hash.hpp>
+#if LIBTORRENT_VERSION_NUM < 10100
 #include <libtorrent/escape_string.hpp>
+#endif
 #pragma GCC diagnostic pop
 
 #endif

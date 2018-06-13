@@ -115,7 +115,15 @@ DataOpen(vlc_object_t *p_this)
 
 	libtorrent::error_code ec;
 
+#if LIBTORRENT_VERSION_NUM < 10100
 	params.ti = new libtorrent::torrent_info(metadata.c_str(), ec);
+#elif LIBTORRENT_VERSION_NUM < 10200
+	params.ti = boost::make_shared<libtorrent::torrent_info>(
+		metadata.c_str(), boost::ref(ec));
+#else
+	params.ti = std::make_shared<libtorrent::torrent_info>(
+		metadata.c_str(), std::ref(ec));
+#endif
 
 	if (ec) {
 		msg_Err(p_access, "Parse metadata failed: %s", ec.message().c_str());
