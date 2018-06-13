@@ -13,7 +13,9 @@
 #include <libtorrent/peer_request.hpp>
 #include <libtorrent/create_torrent.hpp>
 #include <libtorrent/version.hpp>
+#if LIBTORRENT_VERSION_NUM >= 10100
 #include <libtorrent/hex.hpp>
+#endif
 #include <libtorrent/sha1_hash.hpp>
 #include <libtorrent/escape_string.hpp>
 #pragma GCC diagnostic pop
