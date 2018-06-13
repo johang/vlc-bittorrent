@@ -28,6 +28,8 @@ cd vlc &&
             --disable-xcb \
             --disable-wayland \
             --disable-alsa \
-            --disable-chromecast &&
+            --disable-chromecast \
+            --disable-nls \
+            --disable-sparkle &&
 make &&
 make install
