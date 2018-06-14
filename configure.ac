@@ -1,5 +1,5 @@
 AC_PREREQ([2.69])
-AC_INIT(vlc-bittorrent, 1.0, johan.gunnarsson@gmail.com, vlc-bittorrent, https://github.com/johang/vlc-bittorrent)
+AC_INIT(vlc-bittorrent, 2.0, johan.gunnarsson@gmail.com, vlc-bittorrent, https://github.com/johang/vlc-bittorrent)
 AC_CONFIG_SRCDIR([src/module.cpp])
 
 # Check programs
