@@ -1,34 +1,14 @@
 language: cpp
-cache: ccache
-matrix:
-  include:
-    - os: linux
-      env: LIBTORRENT_BRANCH=RC_1_0 VLC_GIT=vlc-3.0 GCCSUFFIX=-8
-    - os: linux
-      env: LIBTORRENT_BRANCH=RC_1_1 VLC_GIT=vlc-3.0 GCCSUFFIX=-8
+os: linux
+services:
+  - docker
+compiler:
+  - gcc
+  - clang
 env:
-  global:
-    - MAKEFLAGS=-j2
-    - PKG_CONFIG_PATH=/tmp/lib/pkgconfig
-    - LD_LIBRARY_PATH=/tmp/lib
-addons:
-  apt:
-    sources:
-      - boost-latest
-      - ubuntu-toolchain-r-test
-    packages:
-      - libboost1.55-all-dev
-      - libboost1.55-tools-dev
-      - libcurl4-openssl-dev
-      - flex
-      - bison
-      - g++-8
+  - IMAGE=ubuntu:rolling
+  - IMAGE=ubuntu:devel
 before_install:
-  - export CXX="$CXX$GCCSUFFIX" CC="$CC$GCCSUFFIX" CPP="cpp$GCCSUFFIX"
-install:
-  - ./scripts/build-libtorrent $LIBTORRENT_BRANCH /tmp
-  - ./scripts/build-vlc $VLC_GIT /tmp
-before_script:
-  - autoreconf -i
+  - docker build -t img -f dockerfiles/$IMAGE/Dockerfile .
 script:
-  - ./configure && make
+  - docker run -e CC -e CXX img /bin/sh -c "autoreconf -i && ./configure && make"
