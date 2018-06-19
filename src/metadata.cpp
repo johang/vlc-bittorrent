@@ -39,9 +39,6 @@ MetadataDemux(demux_t *p_demux);
 static int
 MetadataReadDir(stream_t *p_demux, input_item_node_t *p_subitems);
 
-static int ReadDVD( stream_t *, input_item_node_t * );
-static int ReadDVD_VR( stream_t *, input_item_node_t * );
-
 int MetadataOpen(vlc_object_t *p_this)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
