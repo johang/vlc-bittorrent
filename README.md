@@ -29,8 +29,7 @@ Probably. I have not tested. It should run since libtorrent works on most system
 
 ## Dependencies (on Linux)
 
-* libvlc core ("libvlccore8" in Debian/Ubuntu)
-* libtorrent ("libtorrent-rasterbar9" in Debian/Ubuntu)
+* libtorrent ("libtorrent-rasterbar9" in Ubuntu 18.04)
 
 ## Building from git on a recent Debian/Ubuntu
 
@@ -40,11 +39,8 @@ Probably. I have not tested. It should run since libtorrent works on most system
     $ autoreconf -i
     $ ./configure --prefix=/tmp/vlc
     $ make
-
-And optionally, if you want to install it:
-
     $ make install
 
 Then, to load it in VLC player:
 
-    $ VLC_PLUGIN_PATH=/tmp/vlc vlc --no-plugins-cache video.torrent
+    $ VLC_PLUGIN_PATH=/tmp/vlc/lib vlc --no-plugins-cache video.torrent
