@@ -1,5 +1,7 @@
 lib_LTLIBRARIES = libaccess_bittorrent_plugin.la
 
+libdir = /usr/lib/$(shell dpkg-architecture -q DEB_TARGET_MULTIARCH)/vlc/plugins
+
 libaccess_bittorrent_plugin_la_SOURCES = \
 	module.cpp \
 	metadata.cpp \
