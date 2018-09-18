@@ -15,4 +15,5 @@ PKG_CHECK_MODULES(LIBTORRENT, libtorrent-rasterbar >= 1.0.0)
 # Check libtool
 LT_INIT
 
+AC_CONFIG_HEADERS(src/config.h)
 AC_OUTPUT(Makefile src/Makefile)

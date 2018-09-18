@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "config.h"
 #include "libtorrent.h"
 #include "vlc.h"
 
@@ -83,7 +84,7 @@ MagnetMetadataOpen(vlc_object_t *p_this)
 
 	save_path += vlc_download_dir;
 	save_path += DIR_SEP;
-	save_path += "vlc-bittorrent";
+	save_path += PACKAGE;
 
 	vlc_mkdir(vlc_download_dir, 0777);
 	vlc_mkdir(save_path.c_str(), 0777);
