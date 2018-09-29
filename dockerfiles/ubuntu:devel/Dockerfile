@@ -7,6 +7,7 @@ RUN apt-get update && apt-get -y install \
     automake \
     libtool \
     libvlccore-dev \
+    libvlc-dev \
     libtorrent-rasterbar-dev \
     vlc
 COPY . /vlc-bittorrent

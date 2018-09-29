@@ -1,0 +1,7 @@
+VLCDUMMY ITEM flags.torrent
+VLCDUMMY STATE flags.torrent OPENING
+VLCDUMMY STATE flags.torrent PLAYING
+VLCDUMMY SUBITEM /denmark.png
+VLCDUMMY SUBITEM /norway.png
+VLCDUMMY SUBITEM /sweden.png
+VLCDUMMY END

@@ -1,0 +1,40 @@
+#!/bin/bash
+# Copyright 2018 Johan Gunnarsson <johan.gunnarsson@gmail.com>
+#
+# This file is part of vlc-bittorrent.
+#
+# vlc-bittorrent is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# vlc-bittorrent is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
+
+set -o pipefail
+
+export VLC_PLUGIN_PATH=$(pwd)/../src/.libs
+
+run_test() {
+	timeout 60 ./vlcdummy "$1" \
+		--print-item \
+		--play-item \
+		--print-subitems 2>/dev/null |
+	grep VLCDUMMY |
+	diff -U 10 "$2" - |
+	sed -e "s/^/# /" &&
+	echo "ok # $1" ||
+	echo "not ok # $1"
+}
+
+echo 1..5
+run_test "data/flags.torrent" "data/flags.torrent.metadata-expected.txt"
+run_test "data/nasa1.mp4.torrent" "data/nasa1.mp4.torrent.metadata-expected.txt"
+run_test "data/nasa.torrent" "data/nasa.torrent.metadata-expected.txt"
+run_test "data/sweden.jpg.torrent" "data/sweden.jpg.torrent.metadata-expected.txt"
+run_test "data/sweden.png.torrent" "data/sweden.png.torrent.metadata-expected.txt"

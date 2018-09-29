@@ -1,0 +1,5 @@
+VLCDUMMY ITEM sweden.jpg.torrent
+VLCDUMMY STATE sweden.jpg.torrent OPENING
+VLCDUMMY STATE sweden.jpg.torrent PLAYING
+VLCDUMMY SUBITEM sweden.jpg
+VLCDUMMY END

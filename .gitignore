@@ -6,11 +6,13 @@
 *.so
 
 # generated files
+m4
 Makefile
 Makefile.in
 .deps
 /aclocal.m4
 /autom4te.cache
+/build-aux
 /compile
 /config.guess
 /config.log

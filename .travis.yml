@@ -12,4 +12,4 @@ env:
 before_install:
   - docker build -t img -f dockerfiles/$IMAGE/Dockerfile .
 script:
-  - docker run -e CC -e CXX img /bin/sh -c "autoreconf -i && ./configure && make"
+  - docker run -e CC -e CXX img /bin/sh -c "autoreconf -i && ./configure && make && make check"
