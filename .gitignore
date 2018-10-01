@@ -10,6 +10,7 @@ m4
 Makefile
 Makefile.in
 .deps
+.libs
 /aclocal.m4
 /autom4te.cache
 /build-aux
