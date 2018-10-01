@@ -32,9 +32,8 @@ run_test() {
 	echo "not ok # $1"
 }
 
-echo 1..5
+echo 1..4
 run_test "data/flags.torrent" "data/flags.torrent.metadata-expected.txt"
 run_test "data/nasa1.mp4.torrent" "data/nasa1.mp4.torrent.metadata-expected.txt"
 run_test "data/nasa.torrent" "data/nasa.torrent.metadata-expected.txt"
-run_test "data/sweden.jpg.torrent" "data/sweden.jpg.torrent.metadata-expected.txt"
 run_test "data/sweden.png.torrent" "data/sweden.png.torrent.metadata-expected.txt"
