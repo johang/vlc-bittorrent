@@ -180,6 +180,12 @@ struct Download {
 	list();
 
 	/**
+	 *
+	 */
+	uint64_t
+	file_size(int file);
+
+	/**
 	 * Get download name.
 	 */
 	std::string

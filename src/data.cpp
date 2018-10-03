@@ -233,6 +233,17 @@ DataControl(stream_t *p_access, int i_query, va_list args)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
+	if (!p_access)
+		return VLC_EGENERIC;
+
+	access_sys_t *p_sys = (access_sys_t *) p_access->p_sys;
+
+	if (!p_sys)
+		return VLC_EGENERIC;
+
+	if (!p_sys->download)
+		return VLC_EGENERIC;
+
 	switch (i_query) {
 	case STREAM_CAN_SEEK:
 		*va_arg(args, bool *) = true;
@@ -253,10 +264,9 @@ DataControl(stream_t *p_access, int i_query, va_list args)
 		break;
 	case STREAM_SET_PAUSE_STATE:
 		break;
-	// TODO
 	case STREAM_GET_SIZE:
-	case STREAM_SET_SEEKPOINT:
-	case STREAM_GET_SEEKPOINT:
+		*va_arg(args, uint64_t *) = p_sys->download->file_size(p_sys->index);
+		break;
 	default:
 		return VLC_EGENERIC;
 	}

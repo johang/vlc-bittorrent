@@ -258,6 +258,12 @@ Download::read(int file, uint64_t pos, char *buf, size_t buflen)
 	return read_piece(req, buf, buflen);
 }
 
+uint64_t
+Download::file_size(int file)
+{
+	return (uint64_t) m_handle.torrent_file()->files().file_size(file);
+}
+
 std::string
 Download::name()
 {
