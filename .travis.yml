@@ -10,6 +10,6 @@ env:
   - IMAGE=ubuntu:rolling
   - IMAGE=ubuntu:devel
 before_install:
-  - docker build -t img -f dockerfiles/$IMAGE/Dockerfile .
+  - docker build --build-arg IMAGE=$IMAGE -t $IMAGE -f test/dockerfiles/Dockerfile.$IMAGE .
 script:
-  - docker run -e CC -e CXX img /bin/sh -c "autoreconf -i && ./configure && make && make check"
+  - docker run -e CC -e CXX $IMAGE
