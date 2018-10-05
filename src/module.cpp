@@ -35,6 +35,8 @@ vlc_module_begin()
 	set_capability("access", 1)
 	add_shortcut("bittorrent")
 	set_callbacks(DataOpen, DataClose)
+	add_directory("bittorrent-download-path", NULL, "Downloads",
+		"Directory where VLC will put downloaded files.", false)
 	add_submodule()
 		/* This module takes a metadata HTTP URL or a metadata file URI and
 		   outputs a playlist containing special URLs in the form

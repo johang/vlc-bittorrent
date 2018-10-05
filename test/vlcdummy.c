@@ -47,6 +47,10 @@ static const char *args[] = {
 	"--vout=dummy",
 	"--aout=dummy",
 	"--reset-plugins-cache",
+	"--bittorrent-download-path",
+	"/tmp",
+	"--image-duration",
+	"2",
 };
 
 static void
@@ -61,10 +65,10 @@ media_list_player_event_handler(const struct libvlc_event_t *, void *);
 static void
 media_subitemadded(libvlc_media_t *parent, libvlc_media_t *media)
 {
-	libvlc_event_manager_t *eh = libvlc_media_event_manager(media);
-	assert(eh != NULL);
+	libvlc_event_manager_t *mem = libvlc_media_event_manager(media);
+	assert(mem != NULL);
 
-	libvlc_event_attach(eh, libvlc_MediaStateChanged, media_event_handler, NULL);
+	libvlc_event_attach(mem, libvlc_MediaStateChanged, media_event_handler, NULL);
 
 	if (print_subitems) {
 		printf(
@@ -76,6 +80,9 @@ media_subitemadded(libvlc_media_t *parent, libvlc_media_t *media)
 static void
 media_statechanged(libvlc_media_t *media, libvlc_state_t new_state)
 {
+	libvlc_event_manager_t *mem = libvlc_media_event_manager(media);
+	assert(mem != NULL);
+
 	char *state = "";
 
 	switch (new_state) {
@@ -88,14 +95,31 @@ media_statechanged(libvlc_media_t *media, libvlc_state_t new_state)
 	case libvlc_Error:
 		state = "ERROR";
 		break;
+	case libvlc_Ended:
+		/* Unregister this event to avoid duplicate ENDED events */
+		libvlc_event_detach(mem, libvlc_MediaStateChanged, media_event_handler, NULL);
+
+		state = "ENDED";
+		break;
 	default:
+		printf("state %d\n", new_state);
 		return;
 	}
 
-	printf(
-		"VLCDUMMY STATE %s %s\n",
-		libvlc_media_get_meta(media, libvlc_meta_Title),
-		state);
+	libvlc_media_stats_t stat;
+
+	if (new_state == libvlc_Ended && libvlc_media_get_stats(media, &stat))
+		printf(
+			"VLCDUMMY STATE %s %s (%d audio frames, %d video frames)\n",
+			libvlc_media_get_meta(media, libvlc_meta_Title),
+			state,
+			stat.i_decoded_audio,
+			stat.i_decoded_video);
+	else
+		printf(
+			"VLCDUMMY STATE %s %s\n",
+			libvlc_media_get_meta(media, libvlc_meta_Title),
+			state);
 }
 
 static void

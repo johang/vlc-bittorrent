@@ -1,0 +1,13 @@
+VLCDUMMY ITEM magnet:?xt=urn:btih:59cd782f1021f44e3249c3d4268e75d51e44da7a&dn=nasa
+VLCDUMMY STATE magnet:?xt=urn:btih:59cd782f1021f44e3249c3d4268e75d51e44da7a&dn=nasa OPENING
+VLCDUMMY STATE magnet:?xt=urn:btih:59cd782f1021f44e3249c3d4268e75d51e44da7a&dn=nasa PLAYING
+VLCDUMMY SUBITEM /nasa2.mp4
+VLCDUMMY SUBITEM /nasa3.mp4
+VLCDUMMY STATE magnet:?xt=urn:btih:59cd782f1021f44e3249c3d4268e75d51e44da7a&dn=nasa ENDED (0 audio frames, 0 video frames)
+VLCDUMMY STATE /nasa2.mp4 OPENING
+VLCDUMMY STATE /nasa2.mp4 PLAYING
+VLCDUMMY STATE /nasa2.mp4 ENDED (0 audio frames, 184 video frames)
+VLCDUMMY STATE /nasa3.mp4 OPENING
+VLCDUMMY STATE /nasa3.mp4 PLAYING
+VLCDUMMY STATE /nasa3.mp4 ENDED (0 audio frames, 166 video frames)
+VLCDUMMY END

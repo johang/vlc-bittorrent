@@ -17,6 +17,8 @@ You should have received a copy of the GNU General Public License
 along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "config.h"
+
 #include <string>
 #include <fstream>
 #include <vector>
@@ -120,8 +122,8 @@ build_playlist(stream_t *p_demux, input_item_node_t *p_subitems, char *buf,
 
 	path += vlc_cache_dir;
 	path += DIR_SEP;
+	path += PACKAGE_NAME "-";
 	path += to_hex(metadata.info_hash().to_string());
-	path += "metadata";
 	path += ".torrent";
 
 	free(vlc_cache_dir);

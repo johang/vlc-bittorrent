@@ -80,7 +80,10 @@ MagnetMetadataOpen(vlc_object_t *p_this)
 
 	std::string save_path;
 
-	char *vlc_download_dir = config_GetUserDir(VLC_DOWNLOAD_DIR);
+	char *vlc_download_dir = var_InheritString(p_this, "bittorrent-download-path");
+
+	if (!vlc_download_dir)
+		vlc_download_dir = config_GetUserDir(VLC_DOWNLOAD_DIR);
 
 	save_path += vlc_download_dir;
 	save_path += DIR_SEP;
@@ -88,6 +91,8 @@ MagnetMetadataOpen(vlc_object_t *p_this)
 
 	vlc_mkdir(vlc_download_dir, 0777);
 	vlc_mkdir(save_path.c_str(), 0777);
+
+	// TODO: check if download directory actually exists here
 
 	free(vlc_download_dir);
 

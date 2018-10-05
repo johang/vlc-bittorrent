@@ -22,6 +22,8 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #include <thread>
 #include <condition_variable>
 #include <fstream>
+#include <thread>
+#include <chrono>
 
 #include "libtorrent.h"
 #include "vlc.h"
@@ -155,6 +157,9 @@ Download::Download(DownloadSession *s, torrent_handle h) :
 Download::~Download()
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+	// XXX: Workaround for weirdness in libtorrent
+	std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 
 void

@@ -20,7 +20,19 @@ set -o pipefail
 
 export VLC_PLUGIN_PATH=$(pwd)/../src/.libs
 
+rm -rf /tmp/vlc-bittorrent
+
+mkdir -p $HOME/.config/vlc
+mkdir -p $HOME/.cache/vlc
+mkdir -p $HOME/.local/share/vlc
+
+cp -r data /tmp/vlc-bittorrent
+
 run_test() {
+	pushd data
+	../miniclient *.torrent >/dev/null &
+	popd
+	sleep 1
 	timeout 60 ./vlcdummy "$1" \
 		--print-item \
 		--play-item \
@@ -30,10 +42,16 @@ run_test() {
 	sed -e "s/^/# /" &&
 	echo "ok # $1" ||
 	echo "not ok # $1"
+	kill -9 %1
+	sleep 1
 }
 
-echo 1..4
+echo 1..8
 run_test "data/flags.torrent" "data/flags.torrent.metadata-expected.txt"
 run_test "data/nasa1.mp4.torrent" "data/nasa1.mp4.torrent.metadata-expected.txt"
 run_test "data/nasa.torrent" "data/nasa.torrent.metadata-expected.txt"
 run_test "data/sweden.png.torrent" "data/sweden.png.torrent.metadata-expected.txt"
+run_test "magnet:?xt=urn:btih:18945a9300abfe4ff2442559bb08b8ddb357c16f&dn=flags" "data/flags.torrent-magnet.metadata-expected.txt"
+run_test "magnet:?xt=urn:btih:efd9a476b39ffa3566cf840b72b44aece24a67b6&dn=nasa1.mp4" "data/nasa1.mp4.torrent-magnet.metadata-expected.txt"
+run_test "magnet:?xt=urn:btih:59cd782f1021f44e3249c3d4268e75d51e44da7a&dn=nasa" "data/nasa.torrent-magnet.metadata-expected.txt"
+run_test "magnet:?xt=urn:btih:fce002e43ed1159f4612982ce8fcdb9d30e48f1e&dn=sweden.png" "data/sweden.png.torrent-magnet.metadata-expected.txt"
