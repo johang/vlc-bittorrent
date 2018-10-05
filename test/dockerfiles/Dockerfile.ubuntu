@@ -13,4 +13,4 @@ RUN apt-get update && apt-get -y install \
     libvlccore-dev \
     libvlc-dev \
     vlc
-CMD autoreconf -i && ./configure && make check
+CMD autoreconf -i && ./configure && make && (make check || cat test/*.log)
