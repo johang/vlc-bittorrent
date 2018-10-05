@@ -134,7 +134,7 @@ media_event_handler(const struct libvlc_event_t *p_event, void *p_data)
 	case libvlc_MediaStateChanged:
 		media_statechanged(
 			(libvlc_media_t *) p_event->p_obj,
-			p_event->u.media_state_changed.new_state);
+			(libvlc_state_t) p_event->u.media_state_changed.new_state);
 		break;
 	default:
 		break;
