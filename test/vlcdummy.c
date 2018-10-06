@@ -110,11 +110,11 @@ media_statechanged(libvlc_media_t *media, libvlc_state_t new_state)
 
 	if (new_state == libvlc_Ended && libvlc_media_get_stats(media, &stat))
 		printf(
-			"VLCDUMMY STATE %s %s (%d audio frames, %d video frames)\n",
+			"VLCDUMMY STATE %s %s (%s audio frames, %s video frames)\n",
 			libvlc_media_get_meta(media, libvlc_meta_Title),
 			state,
-			stat.i_decoded_audio,
-			stat.i_decoded_video);
+			stat.i_decoded_audio > 0 ? ">0" : "0",
+			stat.i_decoded_video > 0 ? ">0" : "0");
 	else
 		printf(
 			"VLCDUMMY STATE %s %s\n",

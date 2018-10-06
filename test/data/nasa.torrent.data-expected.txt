@@ -6,8 +6,8 @@ VLCDUMMY SUBITEM /nasa3.mp4
 VLCDUMMY STATE nasa.torrent ENDED (0 audio frames, 0 video frames)
 VLCDUMMY STATE /nasa2.mp4 OPENING
 VLCDUMMY STATE /nasa2.mp4 PLAYING
-VLCDUMMY STATE /nasa2.mp4 ENDED (0 audio frames, 184 video frames)
+VLCDUMMY STATE /nasa2.mp4 ENDED (0 audio frames, >0 video frames)
 VLCDUMMY STATE /nasa3.mp4 OPENING
 VLCDUMMY STATE /nasa3.mp4 PLAYING
-VLCDUMMY STATE /nasa3.mp4 ENDED (0 audio frames, 166 video frames)
+VLCDUMMY STATE /nasa3.mp4 ENDED (0 audio frames, >0 video frames)
 VLCDUMMY END
