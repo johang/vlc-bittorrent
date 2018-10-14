@@ -22,4 +22,4 @@ PKG_CHECK_MODULES(LIBVLC, libvlc >= 3.0.0)
 LT_INIT
 
 AC_CONFIG_HEADERS(src/config.h)
-AC_OUTPUT(Makefile src/Makefile test/Makefile)
+AC_OUTPUT(Makefile src/Makefile test/Makefile data/Makefile)
