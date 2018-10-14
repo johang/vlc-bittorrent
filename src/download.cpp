@@ -158,6 +158,14 @@ Download::~Download()
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
+#if LIBTORRENT_VERSION_NUM < 10200
+	int flags = 0;
+#else
+	libtorrent::remove_flags_t flags = {};
+#endif
+	flags |= libtorrent::session::delete_files;
+	m_session->m_session->remove_torrent(m_handle, flags);
+
 	// XXX: Workaround for weirdness in libtorrent
 	std::this_thread::sleep_for(std::chrono::seconds(1));
 }
