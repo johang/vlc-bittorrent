@@ -26,3 +26,6 @@ libaccess_bittorrent_plugin_la_LDFLAGS = \
 	-avoid-version \
 	-module \
 	-export-symbol-regex ^vlc_entry
+
+desktopdir = $(datadir)/applications
+desktop_DATA = vlc-plugin-bittorrent.desktop
