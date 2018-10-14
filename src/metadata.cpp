@@ -105,6 +105,16 @@ read_stream(stream_t *p_stream, char **buf, size_t *buf_sz)
 	return *buf_sz > 0;
 }
 
+template<int M, template<typename> class F = std::greater>
+struct CompareTuple
+{
+	template<typename T>
+	bool operator()(T const &t1, T const &t2)
+	{
+		return F<typename std::tuple_element<M, T>::type>()(std::get<M>(t1), std::get<M>(t2));
+	}
+};
+
 static bool
 build_playlist(stream_t *p_demux, input_item_node_t *p_subitems, char *buf,
 		size_t buf_sz)
@@ -139,27 +149,30 @@ build_playlist(stream_t *p_demux, input_item_node_t *p_subitems, char *buf,
 	// Bencode metadata and dump it to file
 	bencode(std::ostream_iterator<char>(out), t.generate());
 
-	std::vector<std::string> files;
+	std::vector< std::tuple<boost::int64_t, std::string> > files;
 
 	for (int i = 0; i < metadata.num_files(); i++) {
-		files.push_back(metadata.file_at(i).path);
+		files.push_back(std::tuple<boost::int64_t,
+				           std::string>(metadata.file_at(i).size,
+							metadata.file_at(i).path));
 	}
+	std::sort(files.begin(), files.end(), CompareTuple<0>());
 
 	input_item_t *p_current_input = input_GetItem(p_demux->p_input);
 
 	// How many characters to remove from the beginning of each title
 	size_t offset = (files.size() > 1) ? metadata.name().length() : 0;
 
-	for (std::vector<std::string>::iterator i = files.begin();
-			i != files.end(); ++i) {
+	for (std::vector< std::tuple<boost::int64_t, std::string> >::iterator i = files.begin();
+	     i != files.end(); ++i) {
 		std::string item_path;
 
 		item_path += "bittorrent://";
 		item_path += path;
 		item_path += "?";
-		item_path += *i;
+		item_path += std::get<1>(*i);
 
-		std::string item_title((*i).substr(offset));
+		std::string item_title((std::get<1>(*i)).substr(offset));
 
 		// Create an item for each file
 		input_item_t *p_input = input_item_New(
