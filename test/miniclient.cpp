@@ -17,7 +17,9 @@ You should have received a copy of the GNU General Public License
 along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <chrono> // for std::chrony
 #include <iostream>
+#include <utility> // for std::move
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-conversion"
