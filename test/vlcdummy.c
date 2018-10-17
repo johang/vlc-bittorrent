@@ -35,6 +35,7 @@ static bool play_item = false;
 static bool play_subitems = false;
 static bool print_item = false;
 static bool print_subitems = false;
+static bool random_seek = false;
 
 static pthread_cond_t state_change_cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t state_change_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -190,6 +191,25 @@ play_media_list(libvlc_instance_t *vlc, libvlc_media_list_t *ml)
 	/* Start playing media list */
 	libvlc_media_list_player_play(mlp);
 
+	sleep(10);
+
+	libvlc_media_player_t *mp = libvlc_media_list_player_get_media_player(mlp);
+
+	if (random_seek) {
+		for (int i = 0; i < 100; i++) {
+			/* Random seek to between 0% and 90% of the file */
+			libvlc_media_player_set_position(mp,
+				(0.9f * (float) rand()) / (float) RAND_MAX);
+
+			printf("VLCDUMMY SEEK\n");
+
+			sleep(10);
+		}
+
+		/* Seek to end of file */
+		libvlc_media_player_set_position(mp, 1.0f);
+	}
+
 	while (libvlc_media_list_player_get_state(mlp) != libvlc_Ended) {
 		pthread_cond_wait(&state_change_cond, &state_change_mutex);
 	}
@@ -244,6 +264,8 @@ main(int argc, char **argv)
 			play_subitems = true;
 		} else if (strcmp(argv[i], "--print-subitems") == 0) {
 			print_subitems = true;
+		} else if (strcmp(argv[i], "--random-seek") == 0) {
+			random_seek = true;
 		}
 	}
 
