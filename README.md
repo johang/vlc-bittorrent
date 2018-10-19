@@ -34,6 +34,9 @@ Probably. I have not tested. It should run since libtorrent works on most system
 ## Building from git on a recent Debian/Ubuntu
 
     $ sudo apt-get install autoconf automake libtool make libvlccore-dev libtorrent-rasterbar-dev g++
+    
+**NOTE:** In case of Debian 9+ you have to install additional package `libvlc-dev`
+    
     $ git clone https://github.com/johang/vlc-bittorrent.git vlc-bittorrent
     $ cd vlc-bittorrent
     $ autoreconf -i
