@@ -7,6 +7,7 @@ TryExec=/usr/bin/vlc
 Exec=/usr/bin/vlc --started-from-file %U
 Icon=vlc
 Terminal=false
+NoDisplay=true
 Type=Application
 Categories=AudioVideo;Player;Recorder;Network;FileTransfer;P2P;
 Keywords=Player;Capture;DVD;Audio;Video;Server;Broadcast;
