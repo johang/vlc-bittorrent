@@ -33,7 +33,7 @@ Probably. I have not tested. It should run since libtorrent works on most system
 
 ## Building from git on a recent Debian/Ubuntu
 
-    $ sudo apt-get install autoconf automake libtool make libvlccore-dev libtorrent-rasterbar-dev g++
+    $ sudo apt-get install autoconf automake libtool make libvlc-dev libvlccore-dev libtorrent-rasterbar-dev g++
     $ git clone https://github.com/johang/vlc-bittorrent.git vlc-bittorrent
     $ cd vlc-bittorrent
     $ autoreconf -i
