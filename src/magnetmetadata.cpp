@@ -28,8 +28,6 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 
 #define D(x)
 
-using namespace libtorrent;
-
 struct access_sys_t {
 	stream_t *stream;
 };
@@ -67,75 +65,46 @@ MagnetMetadataOpen(vlc_object_t *p_this)
 		return VLC_EGENERIC;
 	}
 
-	error_code ec;
-
-	add_torrent_params params;
-
-	parse_magnet_uri(magnet, params, ec);
-
-	if (ec) {
-		msg_Err(p_access, "Found magnet URI but couldn't parse it");
-		return VLC_EGENERIC;
-	}
-
-	std::string save_path;
-
-	char *vlc_download_dir = var_InheritString(p_this, "bittorrent-download-path");
-
-	if (!vlc_download_dir)
-		vlc_download_dir = config_GetUserDir(VLC_DOWNLOAD_DIR);
-
-	save_path += vlc_download_dir;
-	save_path += DIR_SEP;
-	save_path += PACKAGE;
-
-	vlc_mkdir(vlc_download_dir, 0777);
-	vlc_mkdir(save_path.c_str(), 0777);
-
-	// TODO: check if download directory actually exists here
-
-	free(vlc_download_dir);
-
-	params.flags &= ~add_torrent_params::flag_auto_managed;
-	params.flags &= ~add_torrent_params::flag_paused;
-	params.save_path = save_path;
-
-	DownloadSession session;
-
-	msg_Dbg(p_access, "Adding download");
-
-	// Add download and block until metadata is downloaded
-	Download *download = session.add(params);
-
-	if (!download) {
-		msg_Err(p_access, "Failed to add download");
-		return VLC_EGENERIC;
-	}
-
-	msg_Dbg(p_access, "Added download");
-
-	std::vector<char> md = download->get_metadata();
-
-	msg_Dbg(p_access, "Got metadata (%zu bytes)", md.size());
-
-	delete download;
-
 	access_sys_t *p_sys = (access_sys_t *) malloc(sizeof (access_sys_t));
 
-	p_sys->stream = vlc_stream_MemoryNew(
-		p_this,
-		(uint8_t *) memcpy(
-			malloc(md.size()),
-			md.data(),
-			md.size()),
-		md.size(),
-		true);
+	Download d;
+
+	try {
+		// Parse metadata
+		d.load(magnet, get_download_directory(p_this));
+
+		msg_Dbg(p_access, "Added download");
+	} catch(std::runtime_error& e) {
+		msg_Err(p_access, "Failed to add download: %s", e.what());
+		goto err;
+	}
+
+	try {
+		// Wait for metadata and bencode it
+		auto md = d.get_metadata();
+
+		msg_Dbg(p_access, "Got metadata (%zu bytes)", md->size());
+
+		p_sys->stream = vlc_stream_MemoryNew(
+			p_this,
+			(uint8_t *) memcpy(malloc(md->size()), md->data(), md->size()),
+			md->size(),
+			true);
+	} catch (std::runtime_error& e) {
+		msg_Err(p_access, "Failed to get metadata: %s", e.what());
+		goto err;
+	}
 
 	p_access->p_sys = p_sys;
 	p_access->pf_read = MagnetMetadataRead;
 	p_access->pf_control = MagnetMetadataControl;
 
 	return VLC_SUCCESS;
+
+err:
+	delete p_sys;
+
+	return VLC_EGENERIC;
 }
 
 void
@@ -150,10 +119,8 @@ MagnetMetadataClose(vlc_object_t *p_this)
 
 	access_sys_t *p_sys = (access_sys_t *) p_access->p_sys;
 
-	if (!p_sys->stream)
-		return;
-
-	vlc_stream_Delete(p_sys->stream);
+	if (p_sys->stream)
+		vlc_stream_Delete(p_sys->stream);
 
 	free(p_sys);
 }

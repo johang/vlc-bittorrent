@@ -1,12 +1,7 @@
 lib_LTLIBRARIES = libaccess_bittorrent_plugin.la
 
-libaccess_bittorrent_plugin_la_SOURCES = \
-	module.cpp \
-	metadata.cpp \
-	magnetmetadata.cpp \
-	data.cpp \
-	download.cpp
-libaccess_bittorrent_plugin_la_CXXFLAGS = \
+# Great and cool CFLAGS
+COOLCFLAGS = \
 	-std=c++11 \
 	-Wno-deprecated-declarations \
 	-Wall \
@@ -15,7 +10,18 @@ libaccess_bittorrent_plugin_la_CXXFLAGS = \
 	-Wsign-compare \
 	-Wsign-conversion \
 	-Wno-unused-parameter \
-	-Wno-unused \
+	-Wno-unused
+
+libaccess_bittorrent_plugin_la_SOURCES = \
+	module.cpp \
+	metadata.cpp \
+	magnetmetadata.cpp \
+	data.cpp \
+	download.cpp \
+	libtorrent.cpp \
+	vlc.cpp
+libaccess_bittorrent_plugin_la_CXXFLAGS = \
+	$(COOLCFLAGS) \
 	$(VLC_PLUGIN_CFLAGS) \
 	$(LIBTORRENT_CFLAGS) \
 	-DMODULE_STRING=\"bittorrent\"

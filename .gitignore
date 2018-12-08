@@ -25,3 +25,5 @@ Makefile.in
 /libtool
 /ltmain.sh
 /missing
+.dirstamp
+.gdbinit

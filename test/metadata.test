@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 
-set -o pipefail
+#set -o pipefail
 
 export VLC_PLUGIN_PATH=$(pwd)/../src/.libs
 

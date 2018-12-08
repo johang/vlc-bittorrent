@@ -26,208 +26,251 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #include <mutex>
 #include <condition_variable>
 #include <stdexcept>
+#include <forward_list>
 
 #include "libtorrent.h"
 #include "vlc.h"
 
-struct DownloadSession;
+#define HIGHEST_PRIORITY 7
+#define HIGH_PRIORITY 6
+#define SLIDING_WINDOW_SIZE 20
 
-struct QueueClosedException : public std::runtime_error {
-	QueueClosedException() :
-		std::runtime_error("Queue is closed")
+class Request;
+
+class Queue {
+
+public:
+
+	Queue()
 	{
+		vlc_mutex_init(&m_mutex);
 	}
+
+	void
+	process_alert(lt::alert *alert);
+
+	void
+	add(Request *req);
+
+	void
+	remove(Request *req);
+
+private:
+
+	std::forward_list<Request *> m_requests;
+
+	/**
+	 * Protects m_requests.
+	 */
+	vlc_mutex_t m_mutex;
 };
 
-template <typename T>
-struct FIFO {
-	std::queue<T> m_elements;
+class Request {
 
-	std::mutex m_mutex;
+public:
 
-	std::condition_variable m_condition;
+	Request(Queue& q) : m_queue(q)
+	{
+		vlc_sem_init(&sem, 0);
 
-	bool m_closed;
+		// Queue this item so it gets all callbacks
+		m_queue.add(this);
+	}
 
-	FIFO() :
-		m_closed(false)
+	~Request()
+	{
+		m_queue.remove(this);
+	}
+
+	void
+	wait()
+	{
+		while (!is_complete()) {
+			if (vlc_sem_wait_i11e(&sem) != 0)
+				throw std::runtime_error("Request aborted");
+		}
+	}
+
+	virtual bool
+	is_complete()
+	{
+		return false;
+	}
+
+	virtual void
+	handle_alert(lt::alert *alert)
 	{
 	}
 
-	void
-	add(T a) {
-		std::lock_guard<std::mutex> lock(m_mutex);
-
-		if (m_closed)
-			return;
-
-		// Put item at end of queue
-		m_elements.push(a);
-
-		// Wake up one waiting thread
-		m_condition.notify_one();
-	}
+protected:
 
 	void
-	close() {
-		std::lock_guard<std::mutex> lock(m_mutex);
-
-		if (m_closed)
-			return;
-
-		// Mark this queue as closed
-		m_closed = true;
-
-		// Wake up all waiting threads
-		m_condition.notify_all();
+	complete()
+	{
+		vlc_sem_post(&sem);
 	}
 
-	T
-	remove() {
-		std::unique_lock<std::mutex> lock(m_mutex);
+private:
 
-		while (m_elements.empty()) {
-			if (m_closed)
-				throw QueueClosedException();
+	Queue& m_queue;
 
-			// Wait until queue is non-empty
-			m_condition.wait(lock);
-		}
+	vlc_sem_t sem;
+};
 
-		// Get oldest item in queue
-		T item = m_elements.front();
+class Add_Request : public Request {
 
-		// Remove oldest item in queue
-		m_elements.pop();
+public:
 
-		return item;
+	Add_Request(Queue& q, lt::torrent_handle h) : Request(q), m_handle(h)
+	{
 	}
 
 	bool
-	is_closed() {
-		std::lock_guard<std::mutex> lock(m_mutex);
+	is_complete();
 
-		return m_closed;
+	void
+	handle_alert(lt::alert *a);
+
+private:
+
+	lt::torrent_handle m_handle;
+};
+
+class Read_Request : public Request {
+
+public:
+
+	Read_Request(Queue& q, lt::torrent_handle& h, lt::peer_request& p,
+			char *b, size_t bl) : Request(q), handle(h), part(p), buf(b),
+				buflen(bl)
+	{
+		// TODO: bounds check piece
+
+		if (!handle.have_piece(part.piece))
+			throw std::runtime_error("Can't read a piece we don̈́'t have");
+
+		handle.read_piece(part.piece);
 	}
+
+	bool
+	is_complete();
+
+	void
+	handle_alert(lt::alert *a);
+
+	ssize_t
+	get_size() {
+		return size;
+	}
+
+private:
+
+	lt::torrent_handle handle;
+
+	lt::peer_request part;
+
+	char *buf;
+
+	size_t buflen;
+
+	// Number of bytes copied
+	ssize_t size = 0;
 };
 
-typedef FIFO<std::shared_ptr<libtorrent::alert>> AFIFO;
+class Download_Request : public Request {
 
-struct SlidingWindowStrategy {
-	std::recursive_mutex m_mutex_first;
+public:
 
-	std::shared_ptr<AFIFO> m_queue;
+	Download_Request(Queue& q, lt::torrent_handle& h, lt::peer_request& p) :
+			Request(q), handle(h), part(p)
+	{
+		handle.piece_priority(part.piece, HIGHEST_PRIORITY);
+	}
 
-	libtorrent::torrent_handle m_handle;
-
-	std::thread m_thread;
-
-	/**
-	 * First piece in the sliding window.
-	 */
-	int m_first;
-
-	/**
-	 * Number of pieces in the sliding window.
-	 */
-	int m_window_size;
-
-	/**
-	 * Number of piece in the download.
-	 */
-	int m_download_size;
-
-	SlidingWindowStrategy(std::shared_ptr<AFIFO> q,
-		libtorrent::torrent_handle h);
-	~SlidingWindowStrategy();
+	bool
+	is_complete();
 
 	void
-	loop();
+	handle_alert(lt::alert *a);
 
-	/**
-	 * Move sliding window to start at a given piece.
-	 */
-	void
-	move(int piece);
+private:
 
-	/**
-	 * Move sliding window one step forward.
-	 */
-	void
-	move();
+	lt::torrent_handle handle;
+
+	lt::peer_request part;
 };
 
-struct Download {
-	DownloadSession *m_session;
+class Download {
 
-	libtorrent::torrent_handle m_handle;
+public:
 
-	SlidingWindowStrategy m_strategy;
-
-	Download(DownloadSession *s, libtorrent::torrent_handle h);
+	Download();
 	~Download();
 
+	void
+	load(std::string uri, std::string save_path);
+
+	void
+	load(char *metadata, size_t metadatalen, std::string save_path);
+
 	/**
-	 * Get metadata.
+	 * Get a part of the data of this download. If the data is not available,
+	 * it will download it and wait for it to become available.
 	 */
-	std::vector<char>
+	ssize_t
+	read(int file, uint64_t off, char *buf, size_t buflen);
+
+	void
+	move_window(int piece);
+
+	void
+	move_window();
+
+	std::vector<std::pair<std::string,uint64_t> >
+	get_files();
+
+	uint64_t
+	get_file_size_by_index(int index);
+
+	int
+	get_file_index_by_path(std::string path);
+
+	std::string
+	get_name();
+
+	std::string
+	get_infohash();
+
+	std::shared_ptr<std::vector<char> >
 	get_metadata();
 
-	/**
-	 * Get a list of all files.
-	 */
-	std::vector<std::string>
-	list();
-
-	/**
-	 *
-	 */
-	uint64_t
-	file_size(int file);
-
-	/**
-	 * Get download name.
-	 */
-	std::string
-	name();
-
-	/**
-	 * Start download of a piece and wait for it to complete.
-	 */
 	void
-	download_piece(int piece);
+	handle_alert(lt::alert *alert);
+
+	friend void
+	libtorrent_add_download(Download *dl, lt::add_torrent_params& atp);
+
+	friend void
+	libtorrent_remove_download(Download *dl);
+
+private:
 
 	/**
-	 * Start read of a piece and wait for it to complete.
+	 * First unfinished piece.
 	 */
-	ssize_t
-	read_piece(libtorrent::peer_request req, char *buf, size_t buflen);
+	int m_window_start = 0;
+
+	lt::session *m_session;
 
 	/**
-	 * Start read of a part of a piece and wait for it to complete.
+	 * Active download. May be invalid.
 	 */
-	ssize_t
-	read(int file, uint64_t pos, char *buf, size_t buflen);
-};
+	lt::torrent_handle m_torrent_handle;
 
-struct DownloadSession {
-	std::list<std::weak_ptr<AFIFO>> m_queues;
+	Queue m_queue;
 
-	std::mutex m_mutex_queues;
-
-	libtorrent::session *m_session;
-
-	DownloadSession();
-	~DownloadSession();
-
-	Download*
-	add(libtorrent::add_torrent_params params);
-
-	/**
-	 * Subscribe to all events emitted from this session.
-	 */
-	std::shared_ptr<AFIFO>
-	subscribe();
+	void
+	add(lt::add_torrent_params& atp);
 };
 
 #endif

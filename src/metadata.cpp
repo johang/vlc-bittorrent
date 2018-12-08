@@ -26,6 +26,7 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #include "libtorrent.h"
 #include "vlc.h"
 
+#include "download.h"
 #include "metadata.h"
 
 #define D(x)
@@ -33,15 +34,14 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #define STREAM_BLOCK_MAX_SIZE (1 * 1024)
 #define STREAM_METADATA_MAX_SIZE (1 * 1024 * 1024)
 
-using namespace libtorrent;
-
 static int
 MetadataDemux(demux_t *p_demux);
 
 static int
 MetadataReadDir(stream_t *p_demux, input_item_node_t *p_subitems);
 
-int MetadataOpen(vlc_object_t *p_this)
+int
+MetadataOpen(vlc_object_t *p_this)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
@@ -81,103 +81,58 @@ read_stream(stream_t *p_stream, char **buf, size_t *buf_sz)
 	p_stream = p_stream->p_source;
 
 	while (!vlc_stream_Eof(p_stream)) {
-		block_t *block = vlc_stream_Block(p_stream, STREAM_BLOCK_MAX_SIZE);
+		block_t *b = vlc_stream_Block(p_stream, STREAM_BLOCK_MAX_SIZE);
 
 		// That function can return NULL spuriously
-		if (!block)
+		if (!b)
 			continue;
 
-		D(printf("%s:%d: %s(): read %lu bytes\n", __FILE__, __LINE__,
-			__func__, block->i_buffer));
-
-		*buf_sz = *buf_sz + block->i_buffer;
+		*buf_sz = *buf_sz + b->i_buffer;
 		*buf = (char *) realloc(*buf, *buf_sz);
 
 		// Enlarge the buffer and copy new contents to it
-		memcpy(
-			*buf + *buf_sz - block->i_buffer,
-			block->p_buffer,
-			block->i_buffer);
+		memcpy(*buf + *buf_sz - b->i_buffer, b->p_buffer, b->i_buffer);
 
-		block_Release(block);
+		block_Release(b);
 	}
 
 	return *buf_sz > 0;
 }
 
-static bool
-build_playlist(stream_t *p_demux, input_item_node_t *p_subitems, char *buf,
-		size_t buf_sz)
+static void
+build_playlist(stream_t *p_demux, input_item_node_t *p_subitems, Download& d)
 {
-	error_code ec;
-
-	torrent_info metadata(buf, (int) buf_sz, ec, 0);
-
-	if (ec)
-		return false;
-
-	std::string path;
-
-	char *vlc_cache_dir = config_GetUserDir(VLC_CACHE_DIR);
-
-	path += vlc_cache_dir;
-	path += DIR_SEP;
-	path += PACKAGE_NAME "-";
-	path += to_hex(metadata.info_hash().to_string());
-	path += ".torrent";
-
-	free(vlc_cache_dir);
-
-	create_torrent t(metadata);
-
-	t.set_comment("vlc metadata dump");
-	t.set_creator("vlc");
+	std::string path = get_cache_directory((vlc_object_t *) p_demux) +
+		DIR_SEP + PACKAGE_NAME + "-" + d.get_infohash() + ".torrent";
 
 	// Stream to output metadata to
 	std::ofstream out(path, std::ios_base::binary);
 
-	// Bencode metadata and dump it to file
-	bencode(std::ostream_iterator<char>(out), t.generate());
+	// The metadata in bencoded form
+	std::shared_ptr<std::vector<char> > md = d.get_metadata();
 
-	std::vector<std::string> files;
-
-	for (int i = 0; i < metadata.num_files(); i++) {
-		files.push_back(metadata.file_at(i).path);
-	}
+	// Dump metadata to file
+	std::copy(md->begin(), md->end(), std::ostreambuf_iterator<char>(out));
 
 	input_item_t *p_current_input = input_GetItem(p_demux->p_input);
 
 	// How many characters to remove from the beginning of each title
-	size_t offset = (files.size() > 1) ? metadata.name().length() : 0;
+	size_t offset = (d.get_files().size() > 1) ? d.get_name().length() : 0;
 
-	for (std::vector<std::string>::iterator i = files.begin();
-			i != files.end(); ++i) {
-		std::string item_path;
+	for (auto f : d.get_files()) {
+		std::string mrl = "bittorrent://" + path + "?" + f.first;
 
-		item_path += "bittorrent://";
-		item_path += path;
-		item_path += "?";
-		item_path += *i;
+		std::string title(f.first.substr(offset));
 
-		std::string item_title((*i).substr(offset));
-
-		// Create an item for each file
-		input_item_t *p_input = input_item_New(
-			item_path.c_str(),
-			item_title.c_str());
+		input_item_t *p_input = input_item_New(mrl.c_str(), title.c_str());
 
 		input_item_CopyOptions(p_input, p_current_input);
-
-		// Add the item to the playlist
 		input_item_node_AppendItem(p_subitems, p_input);
-
 		input_item_Release(p_input);
 	}
-
-	return true;
 }
 
-static int
+int
 MetadataReadDir(stream_t *p_demux, input_item_node_t *p_subitems)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
@@ -190,8 +145,16 @@ MetadataReadDir(stream_t *p_demux, input_item_node_t *p_subitems)
 		return -1;
 	}
 
-	if (!build_playlist(p_demux, p_subitems, buf, buf_sz)) {
-		msg_Err(p_demux, "Failed to parse stream");
+	Download d;
+
+	try {
+		// Parse metadata
+		d.load(buf, buf_sz, get_download_directory((vlc_object_t *) p_demux));
+
+		// Build playlist
+		build_playlist(p_demux, p_subitems, d);
+	} catch (std::runtime_error& e) {
+		msg_Err(p_demux, "Failed to parse metadata: %s", e.what());
 		return -1;
 	}
 

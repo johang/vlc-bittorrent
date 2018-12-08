@@ -17,6 +17,11 @@ You should have received a copy of the GNU General Public License
 along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+/*
+XXX: This file is basically just glue code so vlc can make interruptible
+     blocking calls to libtorrent.
+*/
+
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -24,420 +29,352 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #include <fstream>
 #include <thread>
 #include <chrono>
+#include <stdexcept>
 
 #include "libtorrent.h"
 #include "vlc.h"
 
 #include "download.h"
-#include "metadata.h"
-#include "magnetmetadata.h"
-#include "data.h"
 
 #define D(x)
 #define DD(x)
 
-#define LIBTORRENT_ADD_TORRENT_FLAGS ( \
-	libtorrent::session::add_default_plugins | \
-	libtorrent::session::start_default_features)
+#define HIGHEST_PRIORITY 7
+#define HIGH_PRIORITY 6
+#define LOW_PRIORITY 1
+#define LOWEST_PRIORITY 0
 
-#define LIBTORRENT_ADD_TORRENT_ALERTS ( \
-	libtorrent::alert::storage_notification | \
-	libtorrent::alert::progress_notification | \
-	libtorrent::alert::status_notification | \
-	libtorrent::alert::error_notification)
+namespace lt = libtorrent;
 
-#define SLIDING_WINDOW_SIZE (8 * 1024 * 1024) /* 8 MB */
+bool Add_Request::is_complete() {
+	if (!m_handle.is_valid())
+		return false;
 
-using namespace libtorrent;
+	lt::torrent_status s = m_handle.status();
 
-SlidingWindowStrategy::SlidingWindowStrategy(std::shared_ptr<AFIFO> q,
-			torrent_handle h) :
-	m_queue(q),
-	m_handle(h),
-	m_thread(&SlidingWindowStrategy::loop, this),
-	m_first(-1)
-{
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+	if (s.errc)
+		throw std::runtime_error("Failed to add: " + s.errc.message());
 
-#if LIBTORRENT_VERSION_NUM < 10100
-	boost::intrusive_ptr<torrent_info const> ti = m_handle.torrent_file();
-#else
-	boost::shared_ptr<const torrent_info> ti = m_handle.torrent_file();
+	return s.has_metadata;
+}
+
+void Add_Request::handle_alert(lt::alert *a) {
+	if (lt::alert_cast<lt::state_changed_alert>(a)) {
+		auto *x = lt::alert_cast<lt::state_changed_alert>(a);
+
+		switch (x->state) {
+		case lt::torrent_status::downloading:
+		case lt::torrent_status::finished:
+		case lt::torrent_status::seeding:
+			complete();
+			break;
+		default:
+			break;
+		}
+	} else if (lt::alert_cast<lt::torrent_error_alert>(a)) {
+		complete();
+	} else if (lt::alert_cast<lt::metadata_failed_alert>(a)) {
+		complete();
+	} else if (lt::alert_cast<lt::metadata_received_alert>(a)) {
+		complete();
+	}
+}
+
+bool Read_Request::is_complete() {
+	return size != 0;
+}
+
+void Read_Request::handle_alert(lt::alert *a) {
+	if (lt::alert_cast<lt::read_piece_alert>(a)) {
+		auto *x = lt::alert_cast<lt::read_piece_alert>(a);
+
+		if (x->piece != part.piece)
+			return;
+
+		if (x->buffer) {
+			// Number of bytes to copy
+			size = std::min<ssize_t>({
+				(x->size - part.start),
+				(ssize_t) buflen,
+				part.length });
+
+			// Copy part of the piece into the supplied buffer
+			memcpy(buf, x->buffer.get() + part.start, (size_t) size);
+		} else {
+			// Signal some kind of error
+			size = -EIO;
+		}
+
+		complete();
+	}
+}
+
+bool Download_Request::is_complete() {
+	return handle.have_piece(part.piece);
+}
+
+void Download_Request::handle_alert(lt::alert *a) {
+	if (lt::alert_cast<lt::piece_finished_alert>(a)) {
+		// XXX: Can't do this because of bugs in libtorrent (sometimes 
+		//      piece_finished_alert is posted before
+		//      torrent_handle::have_piece will returns true)
+#if 0 
+		auto *x = lt::alert_cast<lt::piece_finished_alert>(a);
+
+		if (x->piece_index != part.piece)
+			return;
 #endif
 
-	// TODO: variable window size (small right after seek, but growing)
-	m_download_size = ti->num_pieces();
-	m_window_size = std::max(SLIDING_WINDOW_SIZE / ti->piece_length(), 1);
-}
-
-SlidingWindowStrategy::~SlidingWindowStrategy()
-{
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
-
-	// Close the queue (this will cause m_thread to terminate)
-	m_queue->close();
-
-	// Wait for the thread to terminate
-	m_thread.join();
-}
-
-void
-SlidingWindowStrategy::loop()
-{
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
-
-	while (!m_queue->is_closed()) {
-		try {
-			std::shared_ptr<alert> a = m_queue->remove();
-
-			if (alert_cast<piece_finished_alert>(a.get())) {
-				auto *b = alert_cast<piece_finished_alert>(a.get());
-
-				if (b->handle == m_handle)
-					move();
-			}
-		} catch (QueueClosedException& e) {
-			return;
-		}
+		complete();
 	}
 }
 
-void
-SlidingWindowStrategy::move()
-{
-	DD(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+void Queue::process_alert(lt::alert *a) {
+	vlc_mutex_locker lock(&m_mutex);
 
-	std::lock_guard<std::recursive_mutex> lock(m_mutex_first);
-
-	// Try to move the window one or more steps
-	move(m_first);
-}
-
-void
-SlidingWindowStrategy::move(int piece)
-{
-	DD(printf("%s:%d: %s(%d)\n", __FILE__, __LINE__, __func__, piece));
-
-	std::lock_guard<std::recursive_mutex> lock(m_mutex_first);
-
-	// Scroll past all finished pieces
-	for (; m_handle.have_piece(piece) && piece < m_download_size; piece++);
-
-	if (m_first == piece)
-		// Window was not changed
-		return;
-
-	m_first = piece;
-
-	D(printf("actually moved window to %d\n", m_first));
-
-	for (int p = m_first; p < m_first + m_window_size &&
-			p < m_download_size; p++) {
-		// Set highest priority (even if already finished)
-		m_handle.piece_priority(p, 7);
+	for (Request *r : m_requests) {
+		r->handle_alert(a);
 	}
-
 }
 
-Download::Download(DownloadSession *s, torrent_handle h) :
-	m_session(s),
-	m_handle(h),
-	m_strategy(m_session->subscribe(), m_handle)
+void Queue::add(Request *req) {
+	vlc_mutex_locker lock(&m_mutex);
+
+	m_requests.push_front(req);
+}
+
+void Queue::remove(Request *req) {
+	vlc_mutex_locker lock(&m_mutex);
+
+	m_requests.remove(req);
+}
+
+Download::Download()
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
-
-	int num_files = m_handle.torrent_file()->num_files();
-
-	for (int i = 0; i < num_files; ++i) {
-		// Disable downloading of all files until a read happens
-		m_handle.file_priority(i, 0);
-	}
 }
 
 Download::~Download()
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-	// XXX: Workaround for weirdness in libtorrent
-	std::this_thread::sleep_for(std::chrono::seconds(1));
+	libtorrent_remove_download(this);
 }
 
 void
-Download::download_piece(int piece)
-{
-	DD(printf("%s:%d: %s(%d)\n", __FILE__, __LINE__, __func__, piece));
-
-	std::shared_ptr<AFIFO> queue = m_session->subscribe();
-
-	// Move sliding window (this will trigger download)
-	m_strategy.move(piece);
-
-	if (m_handle.have_piece(piece))
-		return;
-
-	while (!queue->is_closed()) {
-		try {
-			std::shared_ptr<alert> a = queue->remove();
-
-			if (alert_cast<piece_finished_alert>(a.get())) {
-				auto *b = alert_cast<piece_finished_alert>(a.get());
-
-				if (b->handle == m_handle && b->piece_index == piece) {
-					// Piece has been downloaded -- return
-					return;
-				}
-			}
-		} catch (QueueClosedException& e) {
-			return;
-		}
-	}
-}
-
-ssize_t
-Download::read_piece(peer_request req, char *buf, size_t buflen)
-{
-	DD(printf("%s:%d: %s(%d)\n", __FILE__, __LINE__, __func__, req.piece));
-
-	// Make sure it's downloaded
-	download_piece(req.piece);
-
-	std::shared_ptr<AFIFO> queue = m_session->subscribe();
-
-	// Trigger read
-	m_handle.read_piece(req.piece);
-
-	while (!queue->is_closed()) {
-		try {
-			std::shared_ptr<alert> a = queue->remove();
-
-			if (alert_cast<read_piece_alert>(a.get())) {
-				auto *b = alert_cast<read_piece_alert>(a.get());
-
-				if (b->handle == m_handle && b->piece == req.piece) {
-					// Number of bytes to copy
-					size_t size = std::min((size_t) (b->size - req.start),
-						buflen);
-
-					// Copy part of the piece into the supplied buffer
-					memcpy(buf, b->buffer.get() + req.start, size);
-
-					// Piece has been read and copied -- return
-					return (ssize_t) size;
-				}
-			}
-		} catch (QueueClosedException& e) {
-			return -1;
-		}
-	}
-
-	return -1;
-}
-
-ssize_t
-Download::read(int file, uint64_t pos, char *buf, size_t buflen)
-{
-	D(printf("%s:%d: %s(%d, %lu)\n", __FILE__, __LINE__, __func__, file, pos));
-
-#if LIBTORRENT_VERSION_NUM < 10100
-	boost::intrusive_ptr<torrent_info const> ti = m_handle.torrent_file();
-#else
-	boost::shared_ptr<const torrent_info> ti = m_handle.torrent_file();
-#endif
-
-	if (file >= ti->num_files())
-		return 0;
-
-	if (pos >= (uint64_t) ti->file_at(file).size)
-		return 0;
-
-#if LIBTORRENT_VERSION_NUM < 10100
-	peer_request req = ti->map_file(file, (size_type) pos, (int) buflen);
-#else
-	peer_request req = ti->map_file(file, (boost::int64_t) pos, (int) buflen);
-#endif
-
-	if (req.piece >= ti->num_pieces())
-		return 0;
-
-	// Download, read and copy this part into buf
-	return read_piece(req, buf, buflen);
-}
-
-uint64_t
-Download::file_size(int file)
-{
-	return (uint64_t) m_handle.torrent_file()->files().file_size(file);
-}
-
-std::string
-Download::name()
-{
-	return m_handle.torrent_file()->name();
-}
-
-std::vector<char>
-Download::get_metadata()
-{
-	std::vector<char> md;
-
-	create_torrent t(*m_handle.torrent_file());
-
-	// Stream out metadata to vector
-	bencode(std::back_inserter(md), t.generate());
-
-	return md;
-}
-
-std::vector<std::string>
-Download::list()
+Download::add(lt::add_torrent_params& atp)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-	std::vector<std::string> files;
+	atp.flags &= ~lt::add_torrent_params::flag_auto_managed;
+	atp.flags &= ~lt::add_torrent_params::flag_paused;
 
-#if LIBTORRENT_VERSION_NUM < 10100
-	boost::intrusive_ptr<torrent_info const> ti = m_handle.torrent_file();
-#else
-	boost::shared_ptr<const torrent_info> ti = m_handle.torrent_file();
+	libtorrent_add_download(this, atp);
+
+	Add_Request areq(m_queue, m_torrent_handle);
+	areq.wait();
+
+	auto info = m_torrent_handle.torrent_file();
+
+#if 0
+	for (int i = 0; i < info->num_files(); i++) {
+		m_torrent_handle.file_priority(i, 0);
+	}
 #endif
 
-	for (int i = 0; i < ti->num_files(); i++) {
-		files.push_back(ti->file_at(i).path);
+	auto files = info->files();
+
+#if 1
+	for (int i = 0; i < files.num_files(); i++) {
+		// Set high priority for first piece of each file
+		m_torrent_handle.piece_priority(
+			info->map_file(i, 0, 1).piece,
+			HIGHEST_PRIORITY);
+
+		// Set high priority for last piece of each file
+		m_torrent_handle.piece_priority(
+			info->map_file(i, files.file_size(i) - 1, 1).piece,
+			HIGHEST_PRIORITY);
+	}
+#endif
+}
+
+void
+Download::load(std::string uri, std::string save_path)
+{
+	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+	lt::add_torrent_params atp;
+
+	if (uri.find("magnet:") == 0) {
+		lt::error_code ec;
+
+		// Attempt to parse this magnet URI
+		lt::parse_magnet_uri(uri, atp, ec);
+
+		if (ec)
+			throw std::runtime_error("Failed to parse magnet");
+	} else {
+		// URI is probably a file or something
+		atp.url = uri;
+	}
+
+	atp.save_path = save_path;
+
+	add(atp);
+}
+
+void
+Download::load(char *buf, size_t buflen, std::string save_path)
+{
+	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+	lt::add_torrent_params atp;
+
+	lt::error_code ec;
+
+#if LIBTORRENT_VERSION_NUM < 10100
+	atp.ti = new libtorrent::torrent_info(buf, buflen, ec);
+#elif LIBTORRENT_VERSION_NUM < 10200
+	atp.ti = boost::make_shared<libtorrent::torrent_info>(buf, buflen, boost::ref(ec));
+#else
+	atp.ti = std::make_shared<libtorrent::torrent_info>(buf, buflen, std::ref(ec));
+#endif
+
+	if (ec)
+		throw std::runtime_error("Failed to parse metadata");
+
+	atp.save_path = save_path;
+
+	add(atp);
+}
+
+ssize_t
+Download::read(int file, uint64_t off, char *buf, size_t buflen)
+{
+	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+	auto ti = m_torrent_handle.torrent_file();
+
+	if (file >= ti->files().num_files())
+		throw std::runtime_error("File not found");
+
+	if (off >= (uint64_t) ti->files().file_size(file))
+		return 0;
+
+	lt::peer_request part = m_torrent_handle.torrent_file()->map_file(
+		file,
+		(int64_t) off,
+		(int) std::min(
+			ti->files().file_size(file) - (int64_t) off,
+			(int64_t) buflen));
+
+	// Move sliding window to this new position
+	move_window(part.piece);
+
+	Download_Request dlreq(m_queue, m_torrent_handle, part);
+	dlreq.wait();
+
+	Read_Request rreq(m_queue, m_torrent_handle, part, buf, buflen);
+	rreq.wait();
+
+	return (ssize_t) rreq.get_size();
+}
+
+void
+Download::move_window(int piece)
+{
+	if (!m_torrent_handle.is_valid())
+		return;
+
+	// Number of pieces in this download
+	int np = m_torrent_handle.torrent_file()->num_pieces();
+
+	if (piece >= np)
+		return;
+
+	// Move to first unfinished piece
+	for (; m_torrent_handle.have_piece(piece) && piece < np; piece++);
+
+	m_window_start = piece;
+
+	for (int p = 0; p < std::max(10, (np + 1) / 20) && piece + p < np; p++) {
+		m_torrent_handle.piece_priority(piece + p, HIGHEST_PRIORITY);
+	}
+}
+
+void
+Download::move_window()
+{
+	move_window(m_window_start);
+}
+
+void
+Download::handle_alert(lt::alert *alert)
+{
+	m_queue.process_alert(alert);
+
+	if (lt::alert_cast<lt::piece_finished_alert>(alert)) {
+		move_window();
+	}
+}
+
+std::vector<std::pair<std::string,uint64_t> >
+Download::get_files()
+{
+	const lt::file_storage& fs = m_torrent_handle.torrent_file()->files();
+
+	std::vector<std::pair<std::string,uint64_t> > files;
+
+	for (int i = 0; i < fs.num_files(); i++) {
+		files.push_back(std::make_pair(fs.file_path(i), fs.file_size(i)));
 	}
 
 	return files;
 }
 
-DownloadSession::DownloadSession()
+uint64_t
+Download::get_file_size_by_index(int index)
 {
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
-
-#if LIBTORRENT_VERSION_NUM < 10100
-	// TODO: proper version
-	m_session = new session(
-		fingerprint(
-			"VL",
-			1,
-			0,
-			0,
-			0),
-		std::make_pair(10000, 12000),
-		"0.0.0.0",
-		LIBTORRENT_ADD_TORRENT_FLAGS,
-		LIBTORRENT_ADD_TORRENT_ALERTS);
-
-	session_settings ss = m_session->settings();
-
-	ss.strict_end_game_mode = false;
-	ss.announce_to_all_trackers = true;
-	ss.announce_to_all_tiers = true;
-
-	m_session->set_settings(ss);
-#else
-	settings_pack p;
-
-	p.set_int(settings_pack::alert_mask, LIBTORRENT_ADD_TORRENT_ALERTS);
-	p.set_bool(settings_pack::strict_end_game_mode, false);
-	p.set_bool(settings_pack::announce_to_all_trackers, true);
-	p.set_bool(settings_pack::announce_to_all_tiers, true);
-	p.set_int(settings_pack::stop_tracker_timeout, 1);
-	p.set_int(settings_pack::piece_timeout, 20);
-
-	m_session = new session(p, LIBTORRENT_ADD_TORRENT_FLAGS);
-#endif
-
-	m_session->add_dht_router(std::make_pair(
-		"router.bittorrent.com", 6881));
-	m_session->add_dht_router(std::make_pair(
-		"router.utorrent.com", 6881));
-	m_session->add_dht_router(std::make_pair(
-		"dht.transmissionbt.com", 6881));
-
-	m_session->set_alert_dispatch([&](std::auto_ptr<alert> a) {
-		std::lock_guard<std::mutex> lock(m_mutex_queues);
-
-		m_queues.remove_if([] (const std::weak_ptr<AFIFO>& f) {
-			return f.expired();
-		});
-
-		for (std::list<std::weak_ptr<AFIFO>>::iterator i = m_queues.begin();
-				i != m_queues.end(); ++i) {
-			std::shared_ptr<AFIFO> f = i->lock();
-
-			if (f)
-				f->add(a->clone());
-		}
-	});
+	return (uint64_t) m_torrent_handle.torrent_file()->files().file_size(index);
 }
 
-DownloadSession::~DownloadSession()
+int
+Download::get_file_index_by_path(std::string path)
 {
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+	const lt::file_storage& fs = m_torrent_handle.torrent_file()->files();
 
-	delete m_session;
-}
+	std::vector<std::pair<std::string,uint64_t> > files;
 
-Download*
-DownloadSession::add(add_torrent_params params)
-{
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
-
-	std::shared_ptr<AFIFO> queue = subscribe();
-
-	error_code ec;
-
-	torrent_handle handle = m_session->add_torrent(params, ec);
-
-	if (ec) {
-		std::cout << "Failed to add torrent" << std::endl;
-		return NULL;
+	for (int i = 0; i < fs.num_files(); i++) {
+		if (fs.file_path(i) == path)
+			return i;
 	}
 
-	while (!queue->is_closed()) {
-		try {
-			std::shared_ptr<alert> a = queue->remove();
-
-			if (alert_cast<state_changed_alert>(a.get())) {
-				auto *b = alert_cast<state_changed_alert>(a.get());
-
-				if (b->handle == handle) {
-					switch (b->state) {
-					case torrent_status::downloading:
-					case torrent_status::finished:
-					case torrent_status::seeding:
-						return new Download(this, handle);
-					default:
-						break;
-					}
-				}
-			} else if (alert_cast<metadata_failed_alert>(a.get())) {
-				auto *b = alert_cast<metadata_failed_alert>(a.get());
-
-				if (b->handle == handle) {
-					return NULL;
-				}
-			}
-		} catch (QueueClosedException& e) {
-			return NULL;
-		}
-	}
-
-	return NULL;
+	throw std::runtime_error("Path " + path + " not found");
 }
 
-std::shared_ptr<AFIFO>
-DownloadSession::subscribe()
+std::string
+Download::get_name()
 {
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+	return m_torrent_handle.torrent_file()->name();
+}
 
-	std::lock_guard<std::mutex> lock(m_mutex_queues);
+std::string
+Download::get_infohash()
+{
+	return lt::to_hex(m_torrent_handle.torrent_file()->info_hash().to_string());
+}
 
-	// Allocate a new queue
-	std::shared_ptr<AFIFO> queue = std::make_shared<AFIFO>();
+std::shared_ptr<std::vector<char> >
+Download::get_metadata()
+{
+	auto buffer = std::make_shared<std::vector<char> >();
 
-	// Put a weak pointer to it in the list of queues
-	m_queues.push_back(queue);
+	// Bencode metadata into buffer
+	lt::bencode(
+		std::back_inserter(*buffer),
+		lt::create_torrent(*m_torrent_handle.torrent_file()).generate());
 
-	// Return the shared pointer to the user
-	return queue;
+	return buffer;
 }

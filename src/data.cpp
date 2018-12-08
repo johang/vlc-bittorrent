@@ -32,11 +32,7 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 
 #define D(x)
 
-using namespace libtorrent;
-
 struct access_sys_t {
-	DownloadSession *session;
-
 	Download *download;
 
 	/**
@@ -59,18 +55,6 @@ DataRead(stream_t *p_access, void *p_buffer, size_t i_len);
 static int
 DataControl(stream_t *p_access, int i_query, va_list args);
 
-static int
-lookup(std::vector<std::string> files, std::string file)
-{
-	std::vector<std::string>::iterator it = std::find(files.begin(),
-		files.end(), file);
-
-	if (it == files.end())
-		return -1;
-	else
-		return (int) (it - files.begin());
-}
-
 int
 DataOpen(vlc_object_t *p_this)
 {
@@ -88,70 +72,36 @@ DataOpen(vlc_object_t *p_this)
 	}
 
 	std::string file(location.substr(query + 1));
-	std::string metadata("" + location.substr(0, query));
-
-	access_sys_t *sys = (access_sys_t *) calloc(1, sizeof (struct access_sys_t));
-
-	msg_Dbg(p_access, "Adding download");
-
-	sys->session = new DownloadSession();
-
-	std::string save_path;
-
-	char *vlc_download_dir = var_InheritString(p_this, "bittorrent-download-path");
-
-	if (!vlc_download_dir)
-		vlc_download_dir = config_GetUserDir(VLC_DOWNLOAD_DIR);
-
-	save_path += vlc_download_dir;
-	save_path += DIR_SEP;
-	save_path += PACKAGE;
-
-	vlc_mkdir(vlc_download_dir, 0777);
-	vlc_mkdir(save_path.c_str(), 0777);
-
-	// TODO: check if download directory actually exists here
-
-	free(vlc_download_dir);
-
-	add_torrent_params params;
-
-	params.flags &= ~add_torrent_params::flag_auto_managed;
-	params.flags &= ~add_torrent_params::flag_paused;
-	params.save_path = save_path;
-
-	libtorrent::error_code ec;
-
-#if LIBTORRENT_VERSION_NUM < 10100
-	params.ti = new libtorrent::torrent_info(metadata.c_str(), ec);
-#elif LIBTORRENT_VERSION_NUM < 10200
-	params.ti = boost::make_shared<libtorrent::torrent_info>(
-		metadata.c_str(), boost::ref(ec));
-#else
-	params.ti = std::make_shared<libtorrent::torrent_info>(
-		metadata.c_str(), std::ref(ec));
-#endif
-
-	if (ec) {
-		msg_Err(p_access, "Parse metadata failed: %s", ec.message().c_str());
-		goto err;
-	}
-
-	sys->download = sys->session->add(params);
-
-	if (!sys->download) {
-		msg_Err(p_access, "Add download");
-		goto err;
-	}
-
-	sys->index = lookup(sys->download->list(), file);
-
-	if (sys->index < 0) {
-		msg_Err(p_access, "Failed to lookup file");
-		goto err;
-	}
+	std::string metadata("file://" + location.substr(0, query));
 
 	msg_Dbg(p_access, "Opening %s in %s", file.c_str(), metadata.c_str());
+
+	access_sys_t *sys = (access_sys_t *) malloc(sizeof (access_sys_t));
+
+	sys->download = new Download();
+
+	try {
+		// Parse metadata
+		sys->download->load(metadata, get_download_directory(p_this));
+
+		msg_Dbg(p_access, "Added download");
+	} catch(std::runtime_error& e) {
+		msg_Err(p_access, "Failed to add download: %s", e.what());
+		goto err;
+	}
+
+	try {
+		// Wait for metadata and lookup file
+		sys->index = sys->download->get_file_index_by_path(file);
+
+		// Assume start from beginning of file
+		sys->i_pos = 0;
+
+		msg_Dbg(p_access, "Found file (index %d)", sys->index);
+	} catch (std::runtime_error& e) {
+		msg_Err(p_access, "Failed find file: %s", e.what());
+		goto err;
+	}
 
 	p_access->p_sys = sys;
 	p_access->pf_block = NULL;
@@ -163,7 +113,6 @@ DataOpen(vlc_object_t *p_this)
 
 err:
 	delete sys->download;
-	delete sys->session;
 
 	free(sys);
 
@@ -183,9 +132,8 @@ DataClose(vlc_object_t *p_this)
 	access_sys_t *p_sys = (access_sys_t *) p_access->p_sys;
 
 	delete p_sys->download;
-	delete p_sys->session;
 
-	free(p_access->p_sys);
+	free(p_sys);
 }
 
 static int
@@ -219,18 +167,24 @@ DataRead(stream_t *p_access, void *p_buffer, size_t i_len)
 	if (!p_sys->download)
 		return -1;
 
-	ssize_t size = p_sys->download->read(
-		p_sys->index,
-		p_sys->i_pos,
-		(char *) p_buffer,
-		i_len);
+	try {
+		ssize_t size = p_sys->download->read(
+			p_sys->index,
+			p_sys->i_pos,
+			(char *) p_buffer,
+			i_len);
 
-	if (size > 0)
-		p_sys->i_pos += (uint64_t) size;
-	else if (size < 0)
-		return 0;
+		if (size > 0)
+			p_sys->i_pos += (uint64_t) size;
+		else if (size < 0)
+			return 0;
 
-	return size;
+		return size;
+	} catch (std::runtime_error& e) {
+		msg_Dbg(p_access, "Read failed: %s", e.what());
+	}
+
+	return -1;
 }
 
 static int
@@ -263,14 +217,16 @@ DataControl(stream_t *p_access, int i_query, va_list args)
 		*va_arg(args, bool *) = true;
 		break;
 	case STREAM_GET_PTS_DELAY:
-		*va_arg(args, int64_t *) = INT64_C(1000) * __MAX(
-			MIN_CACHING_TIME,
-			var_InheritInteger(p_access, "network-caching"));
+		*va_arg(args, int64_t *) =
+			INT64_C(1000) * __MAX(
+				MIN_CACHING_TIME,
+				var_InheritInteger(p_access, "network-caching"));
 		break;
 	case STREAM_SET_PAUSE_STATE:
 		break;
 	case STREAM_GET_SIZE:
-		*va_arg(args, uint64_t *) = p_sys->download->file_size(p_sys->index);
+		*va_arg(args, uint64_t *) =
+			p_sys->download->get_file_size_by_index(p_sys->index);
 		break;
 	default:
 		return VLC_EGENERIC;
