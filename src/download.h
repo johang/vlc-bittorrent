@@ -35,6 +35,8 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #define HIGH_PRIORITY 6
 #define SLIDING_WINDOW_SIZE 20
 
+namespace lt = libtorrent;
+
 class Request;
 
 class Queue {

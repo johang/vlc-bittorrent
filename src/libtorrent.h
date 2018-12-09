@@ -44,7 +44,7 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 class Download;
 
 void
-libtorrent_add_download(Download *dl, lt::add_torrent_params& atp);
+libtorrent_add_download(Download *dl, libtorrent::add_torrent_params& atp);
 
 void
 libtorrent_remove_download(Download *dl);

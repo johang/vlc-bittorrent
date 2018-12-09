@@ -9,6 +9,9 @@ env:
   - IMAGE=ubuntu:latest
   - IMAGE=ubuntu:rolling
   - IMAGE=ubuntu:devel
+  - IMAGE=debian:stable
+  - IMAGE=debian:testing
+  - IMAGE=debian:unstable
 before_install:
   - docker build --build-arg IMAGE=$IMAGE -t $IMAGE -f test/dockerfiles/Dockerfile.$IMAGE .
 script:
