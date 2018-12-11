@@ -37,6 +37,12 @@ vlc_module_begin()
 	set_callbacks(DataOpen, DataClose)
 	add_directory("bittorrent-download-path", NULL, "Downloads",
 		"Directory where VLC will put downloaded files.", false)
+	add_bool("bittorrent-add-video-files", true, "Add video files",
+		"Add video files to the playlist.", true)
+	add_bool("bittorrent-add-audio-files", true, "Add audio files",
+		"Add audio files to the playlist.", true)
+	add_bool("bittorrent-add-image-files", false, "Add image files",
+		"Add image files to the playlist.", true)
 	add_submodule()
 		/* This module takes a metadata HTTP URL or a metadata file URI and
 		   outputs a playlist containing special URLs in the form

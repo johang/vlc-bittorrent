@@ -78,3 +78,21 @@ get_cache_directory(vlc_object_t *p_this)
 
 	return path;
 }
+
+bool
+get_add_video_files(vlc_object_t *p_this)
+{
+	return var_InheritBool(p_this, "bittorrent-add-video-files");
+}
+
+bool
+get_add_audio_files(vlc_object_t *p_this)
+{
+	return var_InheritBool(p_this, "bittorrent-add-audio-files");
+}
+
+bool
+get_add_image_files(vlc_object_t *p_this)
+{
+	return var_InheritBool(p_this, "bittorrent-add-image-files");
+}

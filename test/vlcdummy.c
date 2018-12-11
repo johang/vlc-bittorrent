@@ -50,6 +50,9 @@ static const char *args[] = {
 	"--reset-plugins-cache",
 	"--bittorrent-download-path",
 	"/tmp",
+	"--bittorrent-add-video-files",
+	"--bittorrent-add-audio-files",
+	"--bittorrent-add-image-files",
 	"--image-duration",
 	"2",
 };

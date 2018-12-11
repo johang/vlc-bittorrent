@@ -99,6 +99,26 @@ read_stream(stream_t *p_stream, char **buf, size_t *buf_sz)
 	return *buf_sz > 0;
 }
 
+static bool
+has_extension(std::string file, std::string ext)
+{
+	auto filei = file.crbegin();
+	auto exti = ext.crbegin();
+
+	while (filei != file.crend() && exti != ext.crend()) {
+		if (*filei != *exti)
+			return false;
+
+		filei++;
+		exti++;
+	}
+
+	if (filei == file.crend() || exti != ext.crend())
+		return false;
+
+	return *filei == '.';
+}
+
 static void
 build_playlist(stream_t *p_demux, input_item_node_t *p_subitems, Download& d)
 {
@@ -119,7 +139,33 @@ build_playlist(stream_t *p_demux, input_item_node_t *p_subitems, Download& d)
 	// How many characters to remove from the beginning of each title
 	size_t offset = (d.get_files().size() > 1) ? d.get_name().length() : 0;
 
+	// Valid file extensions
+	std::vector<std::string> video_ext{ EXTENSIONS_VIDEO_CSV };
+	std::vector<std::string> audio_ext{ EXTENSIONS_AUDIO_CSV };
+	std::vector<std::string> image_ext{ EXTENSIONS_IMAGE_CSV };
+
+	std::vector<std::string> ext;
+
+	if (get_add_video_files((vlc_object_t *) p_demux))
+		ext.insert(ext.end(), video_ext.begin(), video_ext.end());
+
+	if (get_add_audio_files((vlc_object_t *) p_demux))
+		ext.insert(ext.end(), audio_ext.begin(), audio_ext.end());
+
+	if (get_add_image_files((vlc_object_t *) p_demux))
+		ext.insert(ext.end(), image_ext.begin(), image_ext.end());
+
 	for (auto f : d.get_files()) {
+		bool add = false;
+
+		for (auto e : ext) {
+			if (has_extension(f.first, e))
+				add = true;
+		}
+
+		if (!add)
+			continue;
+
 		std::string mrl = "bittorrent://" + path + "?" + f.first;
 
 		std::string title(f.first.substr(offset));

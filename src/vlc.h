@@ -42,6 +42,7 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #include <vlc_stream.h>
 #include <vlc_interrupt.h>
 #include <vlc_threads.h>
+#include <vlc_interface.h>
 #pragma GCC diagnostic pop
 
 std::string
@@ -49,5 +50,14 @@ get_download_directory(vlc_object_t *p_this);
 
 std::string
 get_cache_directory(vlc_object_t *p_this);
+
+bool
+get_add_video_files(vlc_object_t *p_this);
+
+bool
+get_add_audio_files(vlc_object_t *p_this);
+
+bool
+get_add_image_files(vlc_object_t *p_this);
 
 #endif
