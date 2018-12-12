@@ -19,6 +19,7 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <assert.h>
 #include <string.h>
 
@@ -295,6 +296,9 @@ main(int argc, char **argv)
 	libvlc_release(vlc);
 
 	printf("VLCDUMMY END\n");
+
+	/* Flush output in case we trigger the libtorrent call-after-free bug */
+	fflush(stdout);
 
 	return 0;
 }
