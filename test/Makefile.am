@@ -1,4 +1,4 @@
-TESTS = data.test metadata.test downloaddummy.test
+TESTS = vlcdummy.test downloaddummy.test
 TEST_LOG_COMPILE = $(SHELL)
 TEST_LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) $(top_srcdir)/build-aux/tap-driver.sh
 AUTOMAKE_OPTIONS = subdir-objects
