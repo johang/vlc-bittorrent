@@ -18,15 +18,13 @@
 
 set -o pipefail
 
-rm -rf /tmp/vlc-bittorrent
-
 mkdir -p $HOME/.config/vlc
 mkdir -p $HOME/.cache/vlc
 mkdir -p $HOME/.local/share/vlc
 
-cp -r data /tmp/vlc-bittorrent
-
 run_test() {
+	rm -rf /tmp/vlc-bittorrent
+	cp -r data /tmp/vlc-bittorrent
 	pushd data
 	../miniclient *.torrent >/dev/null &
 	popd
