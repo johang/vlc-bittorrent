@@ -57,6 +57,10 @@ destroy_session()
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
+	for (auto th : g_session->get_torrents()) {
+		g_session->remove_torrent(th, libtorrent::session::delete_files);
+	}
+
 	// Free the session object -- this might block for a short while
 	delete g_session;
 
