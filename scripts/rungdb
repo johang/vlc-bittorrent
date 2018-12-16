@@ -1,0 +1,2 @@
+#!/bin/sh
+VLC_PLUGIN_PATH=$(dirname "$0")/../src/.libs gdb vlc -ex "r --reset-plugins-cache '$1'"
