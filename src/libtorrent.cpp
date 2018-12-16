@@ -61,6 +61,9 @@ destroy_session()
 		g_session->remove_torrent(th, libtorrent::session::delete_files);
 	}
 
+	// XXX: Short sleep to workaround for bugs in libtorrent
+	usleep(100000);
+
 	// Free the session object -- this might block for a short while
 	delete g_session;
 
@@ -145,8 +148,6 @@ libtorrent_add_download(Download *dl, lt::add_torrent_params& atp)
 	// Add torrent (possibly a duplicate)
 	dl->m_torrent_handle = g_session->add_torrent(atp);
 
-	dl->m_torrent_handle.resume();
-
 	// Tell destroyer that something has happened
 	g_session_cond.notify_one();
 }
@@ -163,11 +164,6 @@ libtorrent_remove_download(Download *dl)
 
 	// Remove download from the list of downloads that gets alerts
 	g_downloads.remove(dl);
-
-	dl->m_torrent_handle.pause();
-
-	// XXX: Short sleep to workaround for bugs in libtorrent
-	usleep(100000);
 
 	// Tell destroyer that something has happened
 	g_session_cond.notify_one();
