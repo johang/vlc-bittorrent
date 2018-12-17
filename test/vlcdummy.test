@@ -26,7 +26,7 @@ mkdir -p $HOME/.local/share/vlc
 
 run_test() {
 	rm -rf /tmp/vlc-bittorrent
-	cp -r data /tmp/vlc-bittorrent
+	mkdir -p /tmp/vlc-bittorrent
 	pushd data
 	../miniclient *.torrent >/dev/null &
 	popd

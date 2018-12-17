@@ -115,17 +115,21 @@ bool Download_Request::is_complete() {
 
 void Download_Request::handle_alert(lt::alert *a) {
 	if (lt::alert_cast<lt::piece_finished_alert>(a)) {
-		// XXX: Can't do this because of bugs in libtorrent (sometimes 
-		//      piece_finished_alert is posted before
-		//      torrent_handle::have_piece will returns true)
-#if 0 
+		// XXX: This alert is unpredictable: Sometimes piece_finished_alert is
+		//      posted before torrent_handle::have_piece will returns true)
+
 		auto *x = lt::alert_cast<lt::piece_finished_alert>(a);
 
-		if (x->piece_index != part.piece)
-			return;
-#endif
+		if (x->piece_index == part.piece)
+			complete();
+	} else if (lt::alert_cast<lt::block_finished_alert>(a)) {
+		// XXX: Listening for block_finished_alert seems more predictable than
+		//      piece_finished_alert, but is posted more often
 
-		complete();
+		auto *x = lt::alert_cast<lt::block_finished_alert>(a);
+
+		if (x->piece_index == part.piece)
+			complete();
 	}
 }
 

@@ -86,7 +86,8 @@ session_thread()
 		std::unique_lock<std::mutex> lock(g_mutex);
 
 		for (auto *a : alerts) {
-			DD(std::cout << "got alert: " << a->message() << std::endl);
+			DD(std::cout << "got alert (" << typeid(*a).name() << "): " <<
+				a->message() << std::endl);
 
 			for (Download *d : g_downloads) {
 				d->handle_alert(a);
