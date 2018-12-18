@@ -257,6 +257,8 @@ Download::read(int file, uint64_t off, char *buf, size_t buflen)
 	if (off >= (uint64_t) ti->files().file_size(file))
 		return 0;
 
+	download_range(file, (int64_t) off, (int64_t) buflen);
+
 	lt::peer_request part = m_torrent_handle.torrent_file()->map_file(
 		file,
 		(int64_t) off,
