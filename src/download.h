@@ -273,6 +273,9 @@ private:
 
 	void
 	add(lt::add_torrent_params& atp);
+
+	void
+	download_range(int file, int64_t offset, int64_t size);
 };
 
 #endif

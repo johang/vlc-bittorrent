@@ -186,21 +186,11 @@ Download::add(lt::add_torrent_params& atp)
 	}
 #endif
 
-	auto files = info->files();
-
-#if 1
-	for (int i = 0; i < files.num_files(); i++) {
-		// Set high priority for first piece of each file
-		m_torrent_handle.piece_priority(
-			info->map_file(i, 0, 1).piece,
-			HIGHEST_PRIORITY);
-
-		// Set high priority for last piece of each file
-		m_torrent_handle.piece_priority(
-			info->map_file(i, files.file_size(i) - 1, 1).piece,
-			HIGHEST_PRIORITY);
+	// Some files have an important index at the beginning or end of the file
+	for (int i = 0; i < info->num_files(); i++) {
+		download_range(i, 0, 128*1024);
+		download_range(i, -128*1024, 128*1024);
 	}
-#endif
 }
 
 void
@@ -256,7 +246,8 @@ Download::load(char *buf, size_t buflen, std::string save_path)
 ssize_t
 Download::read(int file, uint64_t off, char *buf, size_t buflen)
 {
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+	D(printf("%s:%d: %s(%d, %lu, %lu)\n", __FILE__, __LINE__, __func__,
+		file, off, buflen));
 
 	auto ti = m_torrent_handle.torrent_file();
 
@@ -283,6 +274,33 @@ Download::read(int file, uint64_t off, char *buf, size_t buflen)
 	rreq.wait();
 
 	return (ssize_t) rreq.get_size();
+}
+
+void
+Download::download_range(int file, int64_t offset, int64_t size)
+{
+	if (!m_torrent_handle.is_valid())
+		return;
+
+	auto ti = m_torrent_handle.torrent_file();
+
+	// Translate negative offsets to positive
+	if (offset < 0)
+		offset = std::max((int64_t) 0, ti->files().file_size(file) + offset);
+
+	// Clamp offset and size so it's within the file
+	int64_t o = std::min(offset, ti->files().file_size(file));
+	int64_t s = std::min(size, ti->files().file_size(file) - o);
+
+	while (s > 0) {
+		lt::peer_request part = ti->map_file(file, o, (int) s);
+
+		m_torrent_handle.piece_priority(part.piece, HIGHEST_PRIORITY);
+
+		// Advance offset and size
+		o += std::min(part.length, ti->piece_size(part.piece) - part.start);
+		s -= std::min(part.length, ti->piece_size(part.piece) - part.start);
+	}
 }
 
 void
