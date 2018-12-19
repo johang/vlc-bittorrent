@@ -116,16 +116,19 @@ create_session()
 	lt::settings_pack sp;
 
 	sp.set_int(sp.alert_mask, LIBTORRENT_ADD_TORRENT_ALERTS);
+	sp.set_str(sp.dht_bootstrap_nodes, LIBTORRENT_DHT_NODES);
+
+	/* Really aggressive settings to optimize time-to-play */
 	sp.set_bool(sp.strict_end_game_mode, false);
 	sp.set_bool(sp.announce_to_all_trackers, true);
 	sp.set_bool(sp.announce_to_all_tiers, true);
 	sp.set_int(sp.stop_tracker_timeout, 1);
-	sp.set_int(sp.piece_timeout, 5);
-	sp.set_int(sp.request_timeout, 10);
-	sp.set_str(sp.dht_bootstrap_nodes, LIBTORRENT_DHT_NODES);
-	sp.set_int(sp.urlseed_pipeline_size, 1);
+	sp.set_int(sp.request_timeout, 2);
+	sp.set_int(sp.whole_pieces_threshold, 5);
+	sp.set_int(sp.request_queue_time, 1);
+	sp.set_int(sp.urlseed_pipeline_size, 2);
 #if LIBTORRENT_VERSION_NUM >= 10102
-	sp.set_int(sp.urlseed_max_request_bytes, 1 * 1024 * 1024);
+	sp.set_int(sp.urlseed_max_request_bytes, 100 * 1024);
 #endif
 
 	g_session = new lt::session(sp, LIBTORRENT_ADD_TORRENT_FLAGS);
