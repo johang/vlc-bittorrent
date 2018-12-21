@@ -322,8 +322,10 @@ Download::move_window(int piece)
 
 	m_window_start = piece;
 
-	for (int p = 0; p < std::max(10, (np + 1) / 20) && piece + p < np; p++) {
-		m_torrent_handle.piece_priority(piece + p, HIGHEST_PRIORITY);
+	// Set priority HIGH for next 5% of pieces (but at least 10 pieces)
+	for (int p = 0; p < std::max(10, 5 * np / 100) && piece + p < np; p++) {
+		if (m_torrent_handle.piece_priority(piece + p) < HIGH_PRIORITY)
+			m_torrent_handle.piece_priority(piece + p, HIGH_PRIORITY);
 	}
 }
 
