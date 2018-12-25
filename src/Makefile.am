@@ -2,7 +2,6 @@ lib_LTLIBRARIES = libaccess_bittorrent_plugin.la
 
 # Great and cool CFLAGS
 COOLCFLAGS = \
-	-std=c++11 \
 	-Wno-deprecated-declarations \
 	-Wall \
 	-Wextra \

@@ -16,7 +16,6 @@ COOLCFLAGS = \
 
 # Great and cool CXXFLAGS
 COOLCXXFLAGS = \
-	-std=c++11 \
 	$(COOLCFLAGS)
 
 # Support programs
