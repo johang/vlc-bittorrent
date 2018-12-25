@@ -1,9 +1,0 @@
-VLCDUMMY ITEM nasa1.mp4.torrent
-VLCDUMMY STATE nasa1.mp4.torrent OPENING
-VLCDUMMY STATE nasa1.mp4.torrent PLAYING
-VLCDUMMY SUBITEM nasa1.mp4
-VLCDUMMY STATE nasa1.mp4.torrent ENDED (0 audio frames, 0 video frames)
-VLCDUMMY STATE nasa1.mp4 OPENING
-VLCDUMMY STATE nasa1.mp4 PLAYING
-VLCDUMMY STATE nasa1.mp4 ENDED (0 audio frames, >0 video frames)
-VLCDUMMY END

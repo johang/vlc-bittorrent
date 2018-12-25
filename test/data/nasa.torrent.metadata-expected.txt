@@ -1,7 +1,7 @@
 VLCDUMMY ITEM nasa.torrent
 VLCDUMMY STATE nasa.torrent OPENING
 VLCDUMMY STATE nasa.torrent PLAYING
-VLCDUMMY SUBITEM /nasa2.mp4
-VLCDUMMY SUBITEM /nasa3.mp4
+VLCDUMMY SUBITEM /nasa2.ogv
+VLCDUMMY SUBITEM /nasa3.ogv
 VLCDUMMY STATE nasa.torrent ENDED (0 audio frames, 0 video frames)
 VLCDUMMY END

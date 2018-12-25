@@ -1,0 +1,9 @@
+VLCDUMMY ITEM nasa1.ogv.torrent
+VLCDUMMY STATE nasa1.ogv.torrent OPENING
+VLCDUMMY STATE nasa1.ogv.torrent PLAYING
+VLCDUMMY SUBITEM nasa1.ogv
+VLCDUMMY STATE nasa1.ogv.torrent ENDED (0 audio frames, 0 video frames)
+VLCDUMMY STATE nasa1.ogv OPENING
+VLCDUMMY STATE nasa1.ogv PLAYING
+VLCDUMMY STATE nasa1.ogv ENDED (0 audio frames, >0 video frames)
+VLCDUMMY END
