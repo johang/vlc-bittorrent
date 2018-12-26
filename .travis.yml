@@ -6,13 +6,15 @@ compiler:
   - gcc
   - clang
 env:
-  - IMAGE=ubuntu:latest
-  - IMAGE=ubuntu:rolling
-  - IMAGE=ubuntu:devel
-  - IMAGE=debian:stable CXXFLAGS="-std=c++11"
-  - IMAGE=debian:testing
-  - IMAGE=debian:unstable
+  - IMAGE=ubuntu:latest DOCKERFILE=debian
+  - IMAGE=ubuntu:rolling DOCKERFILE=debian
+  - IMAGE=ubuntu:devel DOCKERFILE=debian
+  - IMAGE=debian:stable DOCKERFILE=debian CXXFLAGS="-std=c++11"
+  - IMAGE=debian:testing DOCKERFILE=debian
+  - IMAGE=debian:unstable DOCKERFILE=debian
+  - IMAGE=opensuse/leap:latest DOCKERFILE=opensuse
+  - IMAGE=opensuse/tumbleweed:latest DOCKERFILE=opensuse
 before_install:
-  - docker build --build-arg IMAGE=$IMAGE -t $IMAGE -f test/dockerfiles/Dockerfile.$IMAGE .
+  - docker build --build-arg IMAGE=$IMAGE -t img -f test/dockerfiles/Dockerfile.$DOCKERFILE .
 script:
-  - docker run -e CC -e CXX -e CXXFLAGS $IMAGE
+  - docker run -e CC -e CXX -e CXXFLAGS img
