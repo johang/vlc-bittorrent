@@ -12,7 +12,7 @@ env:
   - IMAGE=debian:stable DOCKERFILE=debian CXXFLAGS="-std=c++11"
   - IMAGE=debian:testing DOCKERFILE=debian
   - IMAGE=debian:unstable DOCKERFILE=debian
-  - IMAGE=opensuse/leap:latest DOCKERFILE=opensuse
+  - IMAGE=opensuse/leap:latest DOCKERFILE=opensuse CXXFLAGS="-std=c++11"
   - IMAGE=opensuse/tumbleweed:latest DOCKERFILE=opensuse
 before_install:
   - docker build --build-arg IMAGE=$IMAGE -t img -f test/dockerfiles/Dockerfile.$DOCKERFILE .

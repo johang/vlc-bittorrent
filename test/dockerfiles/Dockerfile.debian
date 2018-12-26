@@ -12,4 +12,5 @@ RUN apt-get update && apt-get -y install \
     libtorrent-rasterbar-dev \
     libvlccore-dev \
     libvlc-dev \
+    vlc
 CMD autoreconf -i && ./configure && make && (make check || (cat test/*.log && false))
