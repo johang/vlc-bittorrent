@@ -55,7 +55,7 @@ static const char *args[] = {
 	"--bittorrent-add-audio-files",
 	"--bittorrent-add-image-files",
 	"--image-duration",
-	"2",
+	"1",
 };
 
 static void
