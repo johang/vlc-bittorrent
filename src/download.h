@@ -222,12 +222,6 @@ public:
 	ssize_t
 	read(int file, uint64_t off, char *buf, size_t buflen);
 
-	void
-	move_window(int piece);
-
-	void
-	move_window();
-
 	std::vector<std::pair<std::string,uint64_t> >
 	get_files();
 
@@ -276,6 +270,12 @@ private:
 
 	void
 	download_range(int file, int64_t offset, int64_t size);
+
+	void
+	move_window(int piece);
+
+	void
+	move_window();
 };
 
 #endif
