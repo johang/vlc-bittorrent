@@ -6,6 +6,8 @@ AC_CONFIG_AUX_DIR([build-aux])
 
 AC_REQUIRE_AUX_FILE([tap-driver.sh])
 
+CXXFLAGS="$CXXFLAGS -std=c++11"
+
 # Check programs
 AC_PROG_CXX
 AC_PROG_AWK
