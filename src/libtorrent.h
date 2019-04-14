@@ -23,21 +23,21 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-conversion"
 #pragma GCC diagnostic ignored "-Wconversion"
-#include <libtorrent/torrent_handle.hpp>
-#include <libtorrent/torrent_info.hpp>
-#include <libtorrent/session.hpp>
-#include <libtorrent/magnet_uri.hpp>
-#include <libtorrent/alert.hpp>
-#include <libtorrent/alert_types.hpp>
-#include <libtorrent/peer_request.hpp>
-#include <libtorrent/create_torrent.hpp>
-#include <libtorrent/version.hpp>
+#include <torrent_handle.hpp>
+#include <torrent_info.hpp>
+#include <session.hpp>
+#include <magnet_uri.hpp>
+#include <alert.hpp>
+#include <alert_types.hpp>
+#include <peer_request.hpp>
+#include <create_torrent.hpp>
+#include <version.hpp>
 #if LIBTORRENT_VERSION_NUM >= 10100
-#include <libtorrent/hex.hpp>
+#include <hex.hpp>
 #endif
-#include <libtorrent/sha1_hash.hpp>
+#include <sha1_hash.hpp>
 #if LIBTORRENT_VERSION_NUM < 10100
-#include <libtorrent/escape_string.hpp>
+#include <escape_string.hpp>
 #endif
 #pragma GCC diagnostic pop
 
