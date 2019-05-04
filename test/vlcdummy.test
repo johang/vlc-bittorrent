@@ -66,3 +66,4 @@ run_data_test "magnet:?xt=urn:btih:18945a9300abfe4ff2442559bb08b8ddb357c16f&dn=f
 run_data_test "magnet:?xt=urn:btih:8a32f3f6f3c9125da79e29c869122758004ee837&dn=nasa1.ogv" "data/nasa1.ogv.torrent-magnet.data-expected.txt"
 run_data_test "magnet:?xt=urn:btih:6fa46c9a0bb4eecb837c25845d39c5324be66401&dn=nasa" "data/nasa.torrent-magnet.data-expected.txt"
 run_data_test "magnet:?xt=urn:btih:fce002e43ed1159f4612982ce8fcdb9d30e48f1e&dn=sweden.png" "data/sweden.png.torrent-magnet.data-expected.txt"
+exit 0
