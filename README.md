@@ -13,6 +13,10 @@ With vlc-bittorrent, you can open a **.torrent** file or **magnet link** with VL
     $ vlc "magnet:?xt=urn:btih:...&dn=...&tr=..."
     $ vlc "magnet://?xt=urn:btih:...&dn=...&tr=..."
 
+## Installing on Debian/Ubuntu
+
+    $ sudo apt-get install vlc-plugin-bittorrent
+
 ## FAQ
 
 ### Does it upload/share/seed while playing?
