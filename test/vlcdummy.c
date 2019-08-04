@@ -293,7 +293,11 @@ main(int argc, char **argv)
 
 	libvlc_media_release(md);
 
-	libvlc_release(vlc);
+	/* Can't do libvlc_release here because vlc will unload libtorrent before
+	   the session thread finishes, which leads to crashes in the
+	   destroy_session function. I guess the way to properly fix this bug is to
+	   drop the session thread altogether. */
+	//libvlc_release(vlc);
 
 	printf("VLCDUMMY END\n");
 

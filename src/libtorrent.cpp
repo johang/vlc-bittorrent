@@ -61,9 +61,6 @@ destroy_session()
 		g_session->remove_torrent(th, libtorrent::session::delete_files);
 	}
 
-	// XXX: Short sleep to workaround for bugs in libtorrent
-	usleep(100000);
-
 	// Free the session object -- this might block for a short while
 	delete g_session;
 
