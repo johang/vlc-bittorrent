@@ -37,7 +37,7 @@ run_test() {
 	diff -U 10 "$4" - |
 	sed -e "s/^/# /" &&
 	echo "ok # $1 $3" ||
-	echo "not ok # $3"
+	echo "not ok # $1 $3"
 	kill -9 %1
 }
 
