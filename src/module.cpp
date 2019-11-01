@@ -17,47 +17,46 @@ You should have received a copy of the GNU General Public License
 along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "libtorrent.h"
-#include "vlc.h"
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
-#include "metadata.h"
-#include "magnetmetadata.h"
+#include <vlc_plugin.h>
+
 #include "data.h"
+#include "magnetmetadata.h"
+#include "metadata.h"
+
+// clang-format off
 
 vlc_module_begin()
-	set_shortname("bittorrent")
-	set_category(CAT_INPUT)
-	set_subcategory(SUBCAT_INPUT_ACCESS)
-	/* This module takes a special URL in the form
-	   bittorrent:///path/to/metadata.torrent?file.ext and downloads and
-	   outputs the contents of the file on demand. */
-	set_description("Bittorrent data access")
-	set_capability("access", 1)
-	add_shortcut("bittorrent")
-	set_callbacks(DataOpen, DataClose)
-	add_directory("bittorrent-download-path", NULL, "Downloads",
-		"Directory where VLC will put downloaded files.", false)
-	add_bool("bittorrent-add-video-files", true, "Add video files",
-		"Add video files to the playlist.", true)
-	add_bool("bittorrent-add-audio-files", true, "Add audio files",
-		"Add audio files to the playlist.", true)
-	add_bool("bittorrent-add-image-files", false, "Add image files",
-		"Add image files to the playlist.", true)
-	add_bool("bittorrent-keep-files", false, "Don't delete files",
-		"Don't delete files after download.", true)
-	add_submodule()
-		/* This module takes a metadata HTTP URL or a metadata file URI and
-		   outputs a playlist containing special URLs in the form
-		   bittorrent:///path/to/metadata.torrent?file.ext that the data
-		   access submodule can handle. */
-		set_description("Bittorrent file/HTTP/HTTPS metadata demux")
-		set_capability("stream_filter", 50)
-		set_callbacks(MetadataOpen, NULL)
-	add_submodule()
-		/* This module takes a metadata magnet URI and outputs a bittorrent
-		   metadata that the metadata demux submodule can handle. */
-		set_description("Bittorrent magnet metadata access")
-		set_capability("access", 60)
-		add_shortcut("file", "magnet")
-		set_callbacks(MagnetMetadataOpen, MagnetMetadataClose)
+    set_shortname("bittorrent")
+    set_category(CAT_INPUT)
+    set_subcategory(SUBCAT_INPUT_STREAM_FILTER)
+    set_description("Bittorrent metadata access")
+    set_capability("stream_directory", 99)
+    set_callbacks(MetadataOpen, NULL)
+
+#if 1
+    add_directory(DLDIR_CONFIG, NULL, "Downloads",
+        "Directory where VLC will put downloaded files.", false)
+    add_bool(KEEP_CONFIG, false, "Don't delete files",
+        "Don't delete files after download.", true)
+#else
+    add_directory(DLDIR_CONFIG, NULL, "Downloads",
+        "Directory where VLC will put downloaded files.")
+    add_bool(KEEP_CONFIG, false, "Don't delete files",
+        "Don't delete files after download.")
+#endif
+
+    add_submodule()
+        set_description("Bittorrent data access")
+        set_capability("stream_extractor", 99)
+        set_callbacks(DataOpen, DataClose)
+
+    add_submodule()
+        set_description("Bittorrent magnet metadata access")
+        set_capability("access", 60)
+        add_shortcut("file", "magnet")
+        set_callbacks(MagnetMetadataOpen, MagnetMetadataClose)
 vlc_module_end()

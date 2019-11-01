@@ -20,25 +20,9 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef VLC_BITTORRENT_METADATA_H
 #define VLC_BITTORRENT_METADATA_H
 
-#include "libtorrent.h"
 #include "vlc.h"
 
-#ifndef EXTENSIONS_IMAGE_CSV
-#define EXTENSIONS_IMAGE_CSV "png", "jpg", "jpeg", "gif"
-#endif
-
-#ifndef EXTENSIONS_AUDIO_CSV
-#define EXTENSIONS_AUDIO_CSV "aac", "flac", "mp3", "oga", "opus", "wav", "wma"
-#endif
-
-#ifndef EXTENSIONS_VIDEO_CSV
-#define EXTENSIONS_VIDEO_CSV "avi", "mkv", "mov", "mp4", "ogv", "webm", "wmv"
-#endif
-
 int
-MetadataOpen(vlc_object_t *);
-
-void
-MetadataClose(vlc_object_t *);
+MetadataOpen(vlc_object_t* p_obj);
 
 #endif

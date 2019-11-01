@@ -20,13 +20,12 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef VLC_BITTORRENT_DATA_H
 #define VLC_BITTORRENT_DATA_H
 
-#include "libtorrent.h"
 #include "vlc.h"
 
 int
-DataOpen(vlc_object_t *);
+DataOpen(vlc_object_t*);
 
 void
-DataClose(vlc_object_t *);
+DataClose(vlc_object_t*);
 
 #endif

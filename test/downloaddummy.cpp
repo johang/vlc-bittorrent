@@ -30,10 +30,12 @@ static bool abort_metadata = false;
 static void
 test_metadata(Download& d)
 {
+	auto md = d.get_metadata();
+
 	std::cout << "DOWNLOADDUMMY NAME " << d.get_name() << std::endl;
 	std::cout << "DOWNLOADDUMMY INFOHASH " << d.get_infohash() << std::endl;
 
-	for (std::pair<std::string,uint64_t>& f : d.get_files()) {
+	for (auto& f : Download::get_files(md->data(), md->size())) {
 		std::cout << "DOWNLOADDUMMY FILE " << f.first << " " << f.second
 			<< std::endl;
 	}
@@ -42,19 +44,20 @@ test_metadata(Download& d)
 static void
 test_read(Download& d)
 {
+	auto md = d.get_metadata();
+
 	int i = 0;
 
-	for (std::pair<std::string,uint64_t>& f : d.get_files()) {
-		uint64_t total = 0;
+	for (auto& f : Download::get_files(md->data(), md->size())) {
+		int64_t total = 0;
 
 		while (1) {
-			char buf[1024];
+			char buf[64*1024];
 			ssize_t r = d.read(i, total, buf, sizeof (buf));
-
 			if (r <= 0)
 				break;
 
-			total += (uint64_t) r;
+			total += r;
 		}
 
 		std::cout << "DOWNLOADDUMMY READ " << total << " " << i << std::endl;
@@ -84,10 +87,10 @@ main(int argc, char *argv[])
 	if (argc <= 1)
 		return -1;
 
-	Download d(true);
-
 	try {
-		d.load(argv[1], "/tmp/vlc-bittorrent");
+		auto md = Download::get_metadata(argv[1], ".", "/tmp");
+
+		Download d(md->data(), md->size(), ".", true);
 
 		if (show_metadata) {
 			test_metadata(d);

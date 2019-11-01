@@ -22,385 +22,547 @@ XXX: This file is basically just glue code so vlc can make interruptible
      blocking calls to libtorrent.
 */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include <fstream>
+#include <future>
 #include <memory>
 #include <mutex>
-#include <thread>
-#include <condition_variable>
-#include <fstream>
-#include <thread>
-#include <chrono>
 #include <stdexcept>
 
-#include "libtorrent.h"
+#include "download.h"
+#include "session.h"
 #include "vlc.h"
 
-#include "download.h"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wconversion"
+#include <libtorrent/alert.hpp>
+#include <libtorrent/alert_types.hpp>
+#include <libtorrent/create_torrent.hpp>
+#include <libtorrent/hex.hpp>
+#include <libtorrent/magnet_uri.hpp>
+#include <libtorrent/peer_request.hpp>
+#include <libtorrent/session.hpp>
+#include <libtorrent/sha1_hash.hpp>
+#include <libtorrent/torrent_handle.hpp>
+#include <libtorrent/torrent_info.hpp>
+#include <libtorrent/version.hpp>
+#pragma GCC diagnostic pop
 
 #define D(x)
 #define DD(x)
 
-#define HIGHEST_PRIORITY 7
-#define HIGH_PRIORITY 6
-#define LOW_PRIORITY 1
-#define LOWEST_PRIORITY 0
+#define MB (1024 * 1024)
 
 namespace lt = libtorrent;
 
-bool Add_Request::is_complete() {
-	if (!m_handle.is_valid())
-		return false;
+template <typename T> class vlc_interrupt_guard {
+public:
+    vlc_interrupt_guard(T& pr)
+    {
+        vlc_interrupt_register(abort, &pr);
+    }
 
-	lt::torrent_status s = m_handle.status();
+    ~vlc_interrupt_guard()
+    {
+        vlc_interrupt_unregister();
+    }
 
-	if (s.errc)
-		throw std::runtime_error("Failed to add: " + s.errc.message());
+private:
+    static void
+    abort(void* data)
+    {
+        try {
+            // Interrupt get()/wait() on this promise
+            static_cast<T*>(data)->set_exception(
+                std::make_exception_ptr(std::runtime_error("vlc interrupted")));
+        } catch (...) {
+        }
+    }
+};
 
-	return s.has_metadata;
-}
+template <typename T> class AlertSubscriber {
+public:
+    AlertSubscriber(Session* dl, T* pr)
+        : m_session(dl)
+        , m_promise(pr)
+    {
+        m_session->register_alert_listener(m_promise);
+    }
 
-void Add_Request::handle_alert(lt::alert *a) {
-	if (lt::alert_cast<lt::state_changed_alert>(a)) {
-		auto *x = lt::alert_cast<lt::state_changed_alert>(a);
+    ~AlertSubscriber()
+    {
+        m_session->unregister_alert_listener(m_promise);
+    }
 
-		switch (x->state) {
-		case lt::torrent_status::downloading:
-		case lt::torrent_status::finished:
-		case lt::torrent_status::seeding:
-			complete();
-			break;
-		default:
-			break;
-		}
-	} else if (lt::alert_cast<lt::torrent_error_alert>(a)) {
-		complete();
-	} else if (lt::alert_cast<lt::metadata_failed_alert>(a)) {
-		complete();
-	} else if (lt::alert_cast<lt::metadata_received_alert>(a)) {
-		complete();
-	}
-}
+private:
+    Session* m_session;
 
-bool Read_Request::is_complete() {
-	return size != 0;
-}
+    T* m_promise;
+};
 
-void Read_Request::handle_alert(lt::alert *a) {
-	if (lt::alert_cast<lt::read_piece_alert>(a)) {
-		auto *x = lt::alert_cast<lt::read_piece_alert>(a);
+using ReadValue = std::pair<boost::shared_array<char>, int>;
 
-		if (x->piece != part.piece)
-			return;
+class ReadPiecePromise : public std::promise<ReadValue>, public Alert_Listener {
+public:
+    ReadPiecePromise(lt::sha1_hash ih, int p)
+        : m_ih(ih)
+        , m_piece(p)
+    {
+    }
 
-		if (x->buffer) {
-			// Number of bytes to copy
-			size = std::min<ssize_t>({
-				(x->size - part.start),
-				(ssize_t) buflen,
-				part.length });
+    void
+    handle_alert(lt::alert* a) override
+    {
+        if (lt::alert_cast<lt::torrent_alert>(a)) {
+            auto* x = lt::alert_cast<lt::torrent_alert>(a);
+            if (x->handle.info_hash() != m_ih)
+                return;
+        }
 
-			// Copy part of the piece into the supplied buffer
-			memcpy(buf, x->buffer.get() + part.start, (size_t) size);
-		} else {
-			// Signal some kind of error
-			size = -EIO;
-		}
+        if (lt::alert_cast<lt::read_piece_alert>(a)) {
+            auto* x = lt::alert_cast<lt::read_piece_alert>(a);
+            if (x->piece != m_piece)
+                return;
 
-		complete();
-	}
-}
+            if (x->ec)
+                set_exception(
+                    std::make_exception_ptr(std::runtime_error("read failed")));
+            else
+                // Read is done
+                set_value(std::make_pair(x->buffer, x->size));
+        }
+    }
 
-bool Download_Request::is_complete() {
-	return handle.have_piece(part.piece);
-}
+private:
+    lt::sha1_hash m_ih;
 
-void Download_Request::handle_alert(lt::alert *a) {
-	if (lt::alert_cast<lt::piece_finished_alert>(a)) {
-		// XXX: This alert is unpredictable: Sometimes piece_finished_alert is
-		//      posted before torrent_handle::have_piece will returns true)
+    int m_piece;
+};
 
-		auto *x = lt::alert_cast<lt::piece_finished_alert>(a);
+class DownloadPiecePromise : public std::promise<void>, public Alert_Listener {
+public:
+    DownloadPiecePromise(lt::sha1_hash ih, int p)
+        : m_ih(ih)
+        , m_piece(p)
+    {
+    }
 
-		if (x->piece_index == part.piece)
-			complete();
-	} else if (lt::alert_cast<lt::block_finished_alert>(a)) {
-		// XXX: Listening for block_finished_alert seems more predictable than
-		//      piece_finished_alert, but is posted more often
+    void
+    handle_alert(lt::alert* a) override
+    {
+        if (lt::alert_cast<lt::torrent_alert>(a)) {
+            auto* x = lt::alert_cast<lt::torrent_alert>(a);
+            if (x->handle.info_hash() != m_ih)
+                return;
+        }
 
-		auto *x = lt::alert_cast<lt::block_finished_alert>(a);
+        if (lt::alert_cast<lt::piece_finished_alert>(a)) {
+            auto* x = lt::alert_cast<lt::piece_finished_alert>(a);
+            if (x->piece_index != m_piece)
+                return;
 
-		if (x->piece_index == part.piece)
-			complete();
-	}
-}
+            // Download is done
+            set_value();
+        }
+    }
 
-void Queue::process_alert(lt::alert *a) {
-	vlc_mutex_locker lock(&m_mutex);
+private:
+    lt::sha1_hash m_ih;
 
-	for (Request *r : m_requests) {
-		r->handle_alert(a);
-	}
-}
+    int m_piece;
+};
 
-void Queue::add(Request *req) {
-	vlc_mutex_locker lock(&m_mutex);
+class MetadataDownloadPromise : public std::promise<void>,
+                                public Alert_Listener {
+public:
+    MetadataDownloadPromise(lt::sha1_hash ih)
+        : m_ih(ih)
+    {
+    }
 
-	m_requests.push_front(req);
-}
+    void
+    handle_alert(lt::alert* a) override
+    {
+        if (lt::alert_cast<lt::torrent_alert>(a)) {
+            auto* x = lt::alert_cast<lt::torrent_alert>(a);
+            if (x->handle.info_hash() != m_ih)
+                return;
+        }
 
-void Queue::remove(Request *req) {
-	vlc_mutex_locker lock(&m_mutex);
+        if (lt::alert_cast<lt::torrent_error_alert>(a)) {
+            set_exception(
+                std::make_exception_ptr(std::runtime_error("metadata failed")));
+        } else if (lt::alert_cast<lt::metadata_failed_alert>(a)) {
+            set_exception(
+                std::make_exception_ptr(std::runtime_error("metadata failed")));
+        } else if (lt::alert_cast<lt::metadata_received_alert>(a)) {
+            // Metadata download is done
+            set_value();
+        }
+    }
 
-	m_requests.remove(req);
-}
+private:
+    lt::sha1_hash m_ih;
+};
 
-Download::Download(bool keep) : m_keep(keep)
+class RemovePromise : public std::promise<void>, public Alert_Listener {
+public:
+    RemovePromise(lt::sha1_hash ih)
+        : m_ih(ih)
+    {
+    }
+
+    void
+    handle_alert(lt::alert* a) override
+    {
+        if (lt::alert_cast<lt::torrent_removed_alert>(a)) {
+            auto* x = lt::alert_cast<lt::torrent_removed_alert>(a);
+            if (x->info_hash != m_ih)
+                return;
+
+            // Remove is done
+            set_value();
+        }
+    }
+
+private:
+    lt::sha1_hash m_ih;
+};
+
+Download::Download(char* md, size_t mdsz, std::string save_path, bool keep)
+    : m_keep(keep)
 {
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+    D(printf("%s:%d: %s (from buf)\n", __FILE__, __LINE__, __func__));
+
+    lt::add_torrent_params atp;
+    atp.save_path = save_path;
+    atp.flags &= ~lt::add_torrent_params::flag_auto_managed;
+    atp.flags &= ~lt::add_torrent_params::flag_paused;
+    atp.flags |= lt::add_torrent_params::flag_duplicate_is_error;
+
+    lt::error_code ec;
+
+#if LIBTORRENT_VERSION_NUM < 10200
+    atp.ti = boost::make_shared<lt::torrent_info>(md, mdsz, boost::ref(ec));
+#else
+    atp.ti = std::make_shared<lt::torrent_info>(md, mdsz, std::ref(ec));
+#endif
+    if (ec)
+        throw std::runtime_error("Failed to parse metadata");
+
+    // Doesn't matter if it's duplicate since we never remove torrents
+    m_th = m_session.get()->add_torrent(atp);
+    if (!m_th.is_valid())
+        throw std::runtime_error("Failed to add download by buffer");
+
+    // Need to give libtorrent some time to breethe
+    sleep(1);
+
+    download_metadata();
+}
+
+Download::Download(std::string url, std::string save_path, bool keep)
+    : m_keep(keep)
+{
+    D(printf("%s:%d: %s (from magnet)\n", __FILE__, __LINE__, __func__));
+
+    lt::add_torrent_params atp;
+    atp.save_path = save_path;
+    atp.flags &= ~lt::add_torrent_params::flag_auto_managed;
+    atp.flags &= ~lt::add_torrent_params::flag_paused;
+    atp.flags |= lt::add_torrent_params::flag_duplicate_is_error;
+    atp.url = url;
+
+    // Doesn't matter if it's duplicate since we never remove torrents
+    m_th = m_session.get()->add_torrent(atp);
+    if (!m_th.is_valid())
+        throw std::runtime_error("Failed to add download by URL");
+
+    // Need to give libtorrent some time to breethe
+    sleep(1);
+
+    download_metadata();
 }
 
 Download::~Download()
 {
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-	libtorrent_remove_download(this, m_keep);
-}
+    if (m_th.is_valid()) {
+        RemovePromise rmprom(m_th.info_hash());
+        AlertSubscriber<RemovePromise> sub(&m_session, &rmprom);
 
-void
-Download::add(lt::add_torrent_params& atp)
-{
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+        auto f = rmprom.get_future();
 
-	atp.flags &= ~lt::add_torrent_params::flag_auto_managed;
-	atp.flags &= ~lt::add_torrent_params::flag_paused;
+        if (m_keep)
+            m_session.get()->remove_torrent(m_th);
+        else
+            m_session.get()->remove_torrent(m_th, lt::session::delete_files);
 
-	libtorrent_add_download(this, atp);
-
-	Add_Request areq(m_queue, m_torrent_handle);
-	areq.wait();
-
-	auto info = m_torrent_handle.torrent_file();
-
-#if 0
-	for (int i = 0; i < info->num_files(); i++) {
-		m_torrent_handle.file_priority(i, 0);
-	}
-#endif
-
-	// Some files have an important index at the beginning or end of the file
-	for (int i = 0; i < info->num_files(); i++) {
-		download_range(i, 0, 128*1024);
-		download_range(i, -128*1024, 128*1024);
-	}
-}
-
-void
-Download::load(std::string uri, std::string save_path)
-{
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
-
-	lt::add_torrent_params atp;
-
-	if (uri.find("magnet:") == 0) {
-		lt::error_code ec;
-
-		// Attempt to parse this magnet URI
-		lt::parse_magnet_uri(uri, atp, ec);
-
-		if (ec)
-			throw std::runtime_error("Failed to parse magnet");
-	} else {
-		// URI is probably a file or something
-		atp.url = uri;
-	}
-
-	atp.save_path = save_path;
-
-	add(atp);
-}
-
-void
-Download::load(char *buf, size_t buflen, std::string save_path)
-{
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
-
-	lt::add_torrent_params atp;
-
-	lt::error_code ec;
-
-#if LIBTORRENT_VERSION_NUM < 10100
-	atp.ti = new libtorrent::torrent_info(buf, buflen, ec);
-#elif LIBTORRENT_VERSION_NUM < 10200
-	atp.ti = boost::make_shared<libtorrent::torrent_info>(buf, buflen, boost::ref(ec));
-#else
-	atp.ti = std::make_shared<libtorrent::torrent_info>(buf, buflen, std::ref(ec));
-#endif
-
-	if (ec)
-		throw std::runtime_error("Failed to parse metadata");
-
-	atp.save_path = save_path;
-
-	add(atp);
+        // Wait for remove to complete
+        f.wait_for(std::chrono::seconds(5));
+    }
 }
 
 ssize_t
-Download::read(int file, uint64_t off, char *buf, size_t buflen)
+Download::read(int file, int64_t fileoff, char* buf, size_t buflen)
 {
-	D(printf("%s:%d: %s(%d, %lu, %lu)\n", __FILE__, __LINE__, __func__,
-		file, off, buflen));
+    D(printf("%s:%d: %s(%d, %lu, %p, %lu)\n", __FILE__, __LINE__, __func__,
+        file, fileoff, buf, buflen));
 
-	auto ti = m_torrent_handle.torrent_file();
+    auto ti = m_th.torrent_file();
 
-	if (file >= ti->files().num_files())
-		throw std::runtime_error("File not found");
+    auto fs = ti->files();
 
-	if (off >= (uint64_t) ti->files().file_size(file))
-		return 0;
+    if (file >= fs.num_files() || file < 0)
+        throw std::runtime_error("File not found");
 
-	download_range(file, (int64_t) off, (int64_t) buflen);
+    if (fileoff < 0)
+        throw std::runtime_error("File offset negative");
 
-	lt::peer_request part = m_torrent_handle.torrent_file()->map_file(
-		file,
-		(int64_t) off,
-		(int) std::min(
-			ti->files().file_size(file) - (int64_t) off,
-			(int64_t) buflen));
+    auto filesz = fs.file_size(file);
+    if (fileoff >= filesz)
+        return 0;
 
-	// Move sliding window to this new position
-	move_window(part.piece);
+    // Figure out what to read
+    lt::peer_request part = m_th.torrent_file()->map_file(file, fileoff,
+        std::max(
+            0, std::min((int) buflen, (int) (fs.file_size(file) - fileoff))));
+    if (part.length <= 0)
+        return 0;
 
-	Download_Request dlreq(m_queue, m_torrent_handle, part);
-	dlreq.wait();
+    int p = part.piece;
+    int64_t o = fileoff - part.start;
 
-	Read_Request rreq(m_queue, m_torrent_handle, part, buf, buflen);
-	rreq.wait();
+    // Update piece priorities
+    for (; o < std::min(filesz, fileoff + 128 * MB); o += ti->piece_size(p++)) {
+        if (!m_th.have_piece(p)) {
+            if (o < fileoff + 16 * MB && m_th.piece_priority(p) < 7)
+                m_th.piece_priority(p, 7);
+            else if (o < fileoff + 128 * MB && m_th.piece_priority(p) < 2)
+                m_th.piece_priority(p, 2);
+        }
+    }
 
-	return (ssize_t) rreq.get_size();
+    if (!m_th.have_piece(part.piece))
+        download(part);
+
+    return read(part, buf, buflen);
 }
 
-void
-Download::download_range(int file, int64_t offset, int64_t size)
-{
-	if (!m_torrent_handle.is_valid())
-		return;
-
-	auto ti = m_torrent_handle.torrent_file();
-
-	// Translate negative offsets to positive
-	if (offset < 0)
-		offset = std::max((int64_t) 0, ti->files().file_size(file) + offset);
-
-	// Clamp offset and size so it's within the file
-	int64_t o = std::min(offset, ti->files().file_size(file));
-	int64_t s = std::min(size, ti->files().file_size(file) - o);
-
-	while (s > 0) {
-		lt::peer_request part = ti->map_file(file, o, (int) s);
-
-		m_torrent_handle.piece_priority(part.piece, HIGHEST_PRIORITY);
-
-		// Advance offset and size
-		o += std::min(part.length, ti->piece_size(part.piece) - part.start);
-		s -= std::min(part.length, ti->piece_size(part.piece) - part.start);
-	}
-}
-
-void
-Download::move_window(int piece)
-{
-	if (!m_torrent_handle.is_valid())
-		return;
-
-	// Number of pieces in this download
-	int np = m_torrent_handle.torrent_file()->num_pieces();
-
-	if (piece >= np)
-		return;
-
-	// Move to first unfinished piece
-	for (; piece < np && m_torrent_handle.have_piece(piece) ; piece++);
-
-	m_window_start = piece;
-
-	// Set priority HIGH for next 5% of pieces (but at least 10 pieces)
-	for (int p = 0; p < std::max(10, 5 * np / 100) && piece + p < np; p++) {
-		if (m_torrent_handle.piece_priority(piece + p) < HIGH_PRIORITY)
-			m_torrent_handle.piece_priority(piece + p, HIGH_PRIORITY);
-	}
-}
-
-void
-Download::move_window()
-{
-	move_window(m_window_start);
-}
-
-void
-Download::handle_alert(lt::alert *alert)
-{
-	m_queue.process_alert(alert);
-
-	if (lt::alert_cast<lt::piece_finished_alert>(alert)) {
-		move_window();
-	}
-}
-
-std::vector<std::pair<std::string,uint64_t> >
+std::vector<std::pair<std::string, uint64_t>>
 Download::get_files()
 {
-	const lt::file_storage& fs = m_torrent_handle.torrent_file()->files();
+    std::vector<std::pair<std::string, uint64_t>> files;
 
-	std::vector<std::pair<std::string,uint64_t> > files;
+    const lt::file_storage& fs = m_th.torrent_file()->files();
+    for (int i = 0; i < fs.num_files(); i++) {
+        files.push_back(std::make_pair(fs.file_path(i), fs.file_size(i)));
+    }
 
-	for (int i = 0; i < fs.num_files(); i++) {
-		files.push_back(std::make_pair(fs.file_path(i), fs.file_size(i)));
-	}
-
-	return files;
+    return files;
 }
 
-uint64_t
-Download::get_file_size_by_index(int index)
+std::vector<std::pair<std::string, uint64_t>>
+Download::get_files(char* metadata, size_t metadatasz)
 {
-	return (uint64_t) m_torrent_handle.torrent_file()->files().file_size(index);
+    lt::error_code ec;
+
+    lt::torrent_info ti(metadata, (int) metadatasz, ec);
+    if (ec)
+        throw std::runtime_error("Failed to parse metadata");
+
+    std::vector<std::pair<std::string, uint64_t>> files;
+
+    const lt::file_storage& fs = ti.files();
+    for (int i = 0; i < fs.num_files(); i++) {
+        files.push_back(std::make_pair(fs.file_path(i), fs.file_size(i)));
+    }
+
+    return files;
 }
 
-int
-Download::get_file_index_by_path(std::string path)
+std::shared_ptr<std::vector<char>>
+Download::get_metadata(
+    std::string url, std::string save_path, std::string cache_path)
 {
-	const lt::file_storage& fs = m_torrent_handle.torrent_file()->files();
+    lt::add_torrent_params atp;
+    atp.save_path = save_path;
+    atp.flags &= ~lt::add_torrent_params::flag_auto_managed;
+    atp.flags &= ~lt::add_torrent_params::flag_paused;
 
-	std::vector<std::pair<std::string,uint64_t> > files;
+    lt::error_code ec;
 
-	for (int i = 0; i < fs.num_files(); i++) {
-		if (fs.file_path(i) == path)
-			return i;
-	}
+    lt::parse_magnet_uri(url, atp, ec);
+    if (ec) {
+#if LIBTORRENT_VERSION_NUM < 10200
+        atp.ti = boost::make_shared<lt::torrent_info>(url, boost::ref(ec));
+#else
+        atp.ti = std::make_shared<lt::torrent_info>(url, std::ref(ec));
+#endif
+        if (ec)
+            throw std::runtime_error("Failed to parse metadata");
+    } else {
+        std::string path = cache_path + DIR_SEP
+            + lt::to_hex(atp.info_hash.to_string()) + ".torrent";
 
-	throw std::runtime_error("Path " + path + " not found");
+        // Try to read up cache
+#if LIBTORRENT_VERSION_NUM < 10200
+        atp.ti = boost::make_shared<lt::torrent_info>(path, boost::ref(ec));
+#else
+        atp.ti = std::make_shared<lt::torrent_info>(path, std::ref(ec));
+#endif
+        if (ec) {
+            // Download metadata
+            Download dl(url, save_path, false);
+
+            return dl.get_metadata_and_write_to_file(path);
+        }
+    }
+
+    auto buffer = std::make_shared<std::vector<char>>();
+
+    // Bencode metadata into buffer
+    lt::bencode(
+        std::back_inserter(*buffer), lt::create_torrent(*atp.ti).generate());
+
+    return buffer;
+}
+
+std::pair<int, uint64_t>
+Download::get_file(std::string path)
+{
+    const lt::file_storage& fs = m_th.torrent_file()->files();
+    for (int i = 0; i < fs.num_files(); i++) {
+        if (fs.file_path(i) == path)
+            return std::make_pair(i, (uint64_t) fs.file_size(i));
+    }
+
+    throw std::runtime_error("Failed to find file");
 }
 
 std::string
 Download::get_name()
 {
-	return m_torrent_handle.torrent_file()->name();
+    return m_th.torrent_file()->name();
 }
 
 std::string
 Download::get_infohash()
 {
-	return lt::to_hex(m_torrent_handle.torrent_file()->info_hash().to_string());
+    return lt::to_hex(m_th.torrent_file()->info_hash().to_string());
 }
 
-std::shared_ptr<std::vector<char> >
+std::shared_ptr<std::vector<char>>
 Download::get_metadata()
 {
-	auto buffer = std::make_shared<std::vector<char> >();
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-	// Bencode metadata into buffer
-	lt::bencode(
-		std::back_inserter(*buffer),
-		lt::create_torrent(*m_torrent_handle.torrent_file()).generate());
+    auto entry = lt::create_torrent(*m_th.torrent_file()).generate();
 
-	return buffer;
+    auto buffer = std::make_shared<std::vector<char>>();
+
+    // Bencode metadata into vector
+    lt::bencode(std::back_inserter(*buffer), entry);
+
+    return buffer;
+}
+
+std::shared_ptr<std::vector<char>>
+Download::get_metadata_and_write_to_file(std::string path)
+{
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+    auto entry = lt::create_torrent(*m_th.torrent_file()).generate();
+
+    std::filebuf fb;
+    fb.open(path, std::ios::out | std::ios::binary);
+    std::ostream os(&fb);
+
+    // Bencode metadata into file
+    lt::bencode(std::ostream_iterator<char>(os), entry);
+
+    auto buffer = std::make_shared<std::vector<char>>();
+
+    // Bencode metadata into vector
+    lt::bencode(std::back_inserter(*buffer), entry);
+
+    return buffer;
+}
+
+void
+Download::download_metadata()
+{
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+    if (m_th.status().has_metadata)
+        return;
+
+    MetadataDownloadPromise dlprom(m_th.info_hash());
+    AlertSubscriber<MetadataDownloadPromise> sub(&m_session, &dlprom);
+    vlc_interrupt_guard<MetadataDownloadPromise> intrguard(dlprom);
+
+    auto f = dlprom.get_future();
+
+    // Wait for metadata to download
+    while (!m_th.status().has_metadata) {
+        auto r = f.wait_for(std::chrono::seconds(1));
+        if (r == std::future_status::ready)
+            return f.get();
+    }
+}
+
+void
+Download::download(lt::peer_request part)
+{
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+    if (m_th.have_piece(part.piece))
+        return;
+
+    DownloadPiecePromise dlprom(m_th.info_hash(), part.piece);
+    AlertSubscriber<DownloadPiecePromise> sub(&m_session, &dlprom);
+    vlc_interrupt_guard<DownloadPiecePromise> intrguard(dlprom);
+
+    auto f = dlprom.get_future();
+
+    // Wait for download
+    while (!m_th.have_piece(part.piece)) {
+        auto r = f.wait_for(std::chrono::seconds(1));
+        if (r == std::future_status::ready)
+            return f.get();
+    }
+}
+
+ssize_t
+Download::read(lt::peer_request part, char* buf, size_t buflen)
+{
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+    ReadPiecePromise rdprom(m_th.info_hash(), part.piece);
+    AlertSubscriber<ReadPiecePromise> sub(&m_session, &rdprom);
+    vlc_interrupt_guard<ReadPiecePromise> intrguard(rdprom);
+
+    auto f = rdprom.get_future();
+
+    // Trigger read
+    m_th.read_piece(part.piece);
+
+    // Wait for read to complete
+    boost::shared_array<char> piece_buffer;
+    int piece_size;
+    std::tie(piece_buffer, piece_size) = f.get();
+
+    int len = std::min({ piece_size - part.start, (int) buflen, part.length });
+    if (len < 0)
+        return -1;
+
+    // Copy from libtorrent buffer to VLC buffer
+    memcpy(buf, piece_buffer.get() + part.start, (size_t) len);
+
+    return (ssize_t) len;
 }

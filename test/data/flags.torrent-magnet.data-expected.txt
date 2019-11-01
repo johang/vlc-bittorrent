@@ -1,17 +1,21 @@
 VLCDUMMY ITEM magnet:?xt=urn:btih:18945a9300abfe4ff2442559bb08b8ddb357c16f&dn=flags
 VLCDUMMY STATE magnet:?xt=urn:btih:18945a9300abfe4ff2442559bb08b8ddb357c16f&dn=flags OPENING
 VLCDUMMY STATE magnet:?xt=urn:btih:18945a9300abfe4ff2442559bb08b8ddb357c16f&dn=flags PLAYING
-VLCDUMMY SUBITEM /denmark.png
-VLCDUMMY SUBITEM /norway.png
-VLCDUMMY SUBITEM /sweden.png
+VLCDUMMY SUBITEM flags (DIRECTORY)
+VLCDUMMY SUBITEM denmark.png (FILE)
+VLCDUMMY SUBITEM norway.png (FILE)
+VLCDUMMY SUBITEM sweden.png (FILE)
 VLCDUMMY STATE magnet:?xt=urn:btih:18945a9300abfe4ff2442559bb08b8ddb357c16f&dn=flags ENDED (0 audio frames, 0 video frames)
-VLCDUMMY STATE /denmark.png OPENING
-VLCDUMMY STATE /denmark.png PLAYING
-VLCDUMMY STATE /denmark.png ENDED (0 audio frames, >0 video frames)
-VLCDUMMY STATE /norway.png OPENING
-VLCDUMMY STATE /norway.png PLAYING
-VLCDUMMY STATE /norway.png ENDED (0 audio frames, >0 video frames)
-VLCDUMMY STATE /sweden.png OPENING
-VLCDUMMY STATE /sweden.png PLAYING
-VLCDUMMY STATE /sweden.png ENDED (0 audio frames, >0 video frames)
+VLCDUMMY STATE flags OPENING
+VLCDUMMY STATE flags PLAYING
+VLCDUMMY STATE flags ENDED (0 audio frames, 0 video frames)
+VLCDUMMY STATE denmark.png OPENING
+VLCDUMMY STATE denmark.png PLAYING
+VLCDUMMY STATE denmark.png ENDED (0 audio frames, >0 video frames)
+VLCDUMMY STATE norway.png OPENING
+VLCDUMMY STATE norway.png PLAYING
+VLCDUMMY STATE norway.png ENDED (0 audio frames, >0 video frames)
+VLCDUMMY STATE sweden.png OPENING
+VLCDUMMY STATE sweden.png PLAYING
+VLCDUMMY STATE sweden.png ENDED (0 audio frames, >0 video frames)
 VLCDUMMY END

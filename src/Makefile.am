@@ -17,7 +17,7 @@ libaccess_bittorrent_plugin_la_SOURCES = \
 	magnetmetadata.cpp \
 	data.cpp \
 	download.cpp \
-	libtorrent.cpp \
+	session.cpp \
 	vlc.cpp
 libaccess_bittorrent_plugin_la_CXXFLAGS = \
 	$(COOLCFLAGS) \

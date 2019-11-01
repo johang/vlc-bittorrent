@@ -20,13 +20,12 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef VLC_BITTORRENT_MAGNETMETADATA_H
 #define VLC_BITTORRENT_MAGNETMETADATA_H
 
-#include "libtorrent.h"
 #include "vlc.h"
 
 int
-MagnetMetadataOpen(vlc_object_t *);
+MagnetMetadataOpen(vlc_object_t*);
 
 void
-MagnetMetadataClose(vlc_object_t *);
+MagnetMetadataClose(vlc_object_t*);
 
 #endif

@@ -23,44 +23,41 @@ mkdir -p $HOME/.cache/vlc
 mkdir -p $HOME/.local/share/vlc
 
 run_test() {
-	rm -rf /tmp/vlc-bittorrent
-	cp -r data /tmp/vlc-bittorrent
+	echo downloaddummy "$3" $2
 	pushd data
-	../miniclient *.torrent >/dev/null &
-	popd
-	echo ./downloaddummy "$3" $2
-	(timeout 60 ./downloaddummy "$3" $2 || :) 2>/dev/null |
+	cp -n *.torrent /tmp
+	(timeout 60 ../downloaddummy "$3" $2 || :) 2>/dev/null |
 	grep DOWNLOADDUMMY |
 	diff -U 10 "$4" - |
 	sed -e "s/^/# /" &&
 	echo "ok # $1 $3" ||
 	echo "not ok # $1 $3"
-	kill -9 %1
+	popd
 }
 
 run_metadata_test() {
-	run_test "metadata" "--show-metadata" $*
+	time run_test "metadata" "--show-metadata" $*
 }
 
 run_read_test() {
-	run_test "read" "--show-read" $*
+	time run_test "read" "--show-read" $*
 }
 
 echo "1..16"
-run_metadata_test "file://./data/flags.torrent" "data/flags.torrent.downloaddummy-metadata-expected.txt"
-run_metadata_test "file://./data/nasa1.ogv.torrent" "data/nasa1.ogv.torrent.downloaddummy-metadata-expected.txt"
-run_metadata_test "file://./data/nasa.torrent" "data/nasa.torrent.downloaddummy-metadata-expected.txt"
-run_metadata_test "file://./data/sweden.png.torrent" "data/sweden.png.torrent.downloaddummy-metadata-expected.txt"
-run_metadata_test "magnet:?xt=urn:btih:18945a9300abfe4ff2442559bb08b8ddb357c16f&dn=flags" "data/flags.torrent-magnet.downloaddummy-metadata-expected.txt"
-run_metadata_test "magnet:?xt=urn:btih:8a32f3f6f3c9125da79e29c869122758004ee837&dn=nasa1.ogv" "data/nasa1.ogv.torrent-magnet.downloaddummy-metadata-expected.txt"
-run_metadata_test "magnet:?xt=urn:btih:6fa46c9a0bb4eecb837c25845d39c5324be66401&dn=nasa" "data/nasa.torrent-magnet.downloaddummy-metadata-expected.txt"
-run_metadata_test "magnet:?xt=urn:btih:fce002e43ed1159f4612982ce8fcdb9d30e48f1e&dn=sweden.png" "data/sweden.png.torrent-magnet.downloaddummy-metadata-expected.txt"
-run_read_test "file://./data/flags.torrent" "data/flags.torrent.downloaddummy-read-expected.txt"
-run_read_test "file://./data/nasa1.ogv.torrent" "data/nasa1.ogv.torrent.downloaddummy-read-expected.txt"
-run_read_test "file://./data/nasa.torrent" "data/nasa.torrent.downloaddummy-read-expected.txt"
-run_read_test "file://./data/sweden.png.torrent" "data/sweden.png.torrent.downloaddummy-read-expected.txt"
-run_read_test "magnet:?xt=urn:btih:18945a9300abfe4ff2442559bb08b8ddb357c16f&dn=flags" "data/flags.torrent-magnet.downloaddummy-read-expected.txt"
-run_read_test "magnet:?xt=urn:btih:8a32f3f6f3c9125da79e29c869122758004ee837&dn=nasa1.ogv" "data/nasa1.ogv.torrent-magnet.downloaddummy-read-expected.txt"
-run_read_test "magnet:?xt=urn:btih:6fa46c9a0bb4eecb837c25845d39c5324be66401&dn=nasa" "data/nasa.torrent-magnet.downloaddummy-read-expected.txt"
-run_read_test "magnet:?xt=urn:btih:fce002e43ed1159f4612982ce8fcdb9d30e48f1e&dn=sweden.png" "data/sweden.png.torrent-magnet.downloaddummy-read-expected.txt"
+run_metadata_test "flags.torrent" "flags.torrent.downloaddummy-metadata-expected.txt"
+run_metadata_test "nasa1.ogv.torrent" "nasa1.ogv.torrent.downloaddummy-metadata-expected.txt"
+run_metadata_test "nasa.torrent" "nasa.torrent.downloaddummy-metadata-expected.txt"
+run_metadata_test "sweden.png.torrent" "sweden.png.torrent.downloaddummy-metadata-expected.txt"
+run_metadata_test "magnet:?xt=urn:btih:18945a9300abfe4ff2442559bb08b8ddb357c16f&dn=flags" "flags.torrent-magnet.downloaddummy-metadata-expected.txt"
+run_metadata_test "magnet:?xt=urn:btih:8a32f3f6f3c9125da79e29c869122758004ee837&dn=nasa1.ogv" "nasa1.ogv.torrent-magnet.downloaddummy-metadata-expected.txt"
+run_metadata_test "magnet:?xt=urn:btih:6fa46c9a0bb4eecb837c25845d39c5324be66401&dn=nasa" "nasa.torrent-magnet.downloaddummy-metadata-expected.txt"
+run_metadata_test "magnet:?xt=urn:btih:fce002e43ed1159f4612982ce8fcdb9d30e48f1e&dn=sweden.png" "sweden.png.torrent-magnet.downloaddummy-metadata-expected.txt"
+run_read_test "flags.torrent" "flags.torrent.downloaddummy-read-expected.txt"
+run_read_test "nasa1.ogv.torrent" "nasa1.ogv.torrent.downloaddummy-read-expected.txt"
+run_read_test "nasa.torrent" "nasa.torrent.downloaddummy-read-expected.txt"
+run_read_test "sweden.png.torrent" "sweden.png.torrent.downloaddummy-read-expected.txt"
+run_read_test "magnet:?xt=urn:btih:18945a9300abfe4ff2442559bb08b8ddb357c16f&dn=flags" "flags.torrent-magnet.downloaddummy-read-expected.txt"
+run_read_test "magnet:?xt=urn:btih:8a32f3f6f3c9125da79e29c869122758004ee837&dn=nasa1.ogv" "nasa1.ogv.torrent-magnet.downloaddummy-read-expected.txt"
+run_read_test "magnet:?xt=urn:btih:6fa46c9a0bb4eecb837c25845d39c5324be66401&dn=nasa" "nasa.torrent-magnet.downloaddummy-read-expected.txt"
+run_read_test "magnet:?xt=urn:btih:fce002e43ed1159f4612982ce8fcdb9d30e48f1e&dn=sweden.png" "sweden.png.torrent-magnet.downloaddummy-read-expected.txt"
 exit 0

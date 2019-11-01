@@ -20,33 +20,52 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef VLC_BITTORRENT_LIBTORRENT_H
 #define VLC_BITTORRENT_LIBTORRENT_H
 
+#include <forward_list>
+#include <mutex>
+#include <thread>
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-conversion"
 #pragma GCC diagnostic ignored "-Wconversion"
-#include <torrent_handle.hpp>
-#include <torrent_info.hpp>
-#include <session.hpp>
-#include <magnet_uri.hpp>
-#include <alert.hpp>
-#include <alert_types.hpp>
-#include <peer_request.hpp>
-#include <create_torrent.hpp>
-#include <version.hpp>
-#if LIBTORRENT_VERSION_NUM >= 10100
-#include <hex.hpp>
-#endif
-#include <sha1_hash.hpp>
-#if LIBTORRENT_VERSION_NUM < 10100
-#include <escape_string.hpp>
-#endif
+#include <libtorrent/alert.hpp>
+#include <libtorrent/session.hpp>
 #pragma GCC diagnostic pop
 
-class Download;
+struct Alert_Listener {
+    virtual ~Alert_Listener() { }
 
-void
-libtorrent_add_download(Download *dl, libtorrent::add_torrent_params& atp);
+    virtual void
+    handle_alert(lt::alert* alert)
+        = 0;
+};
 
-void
-libtorrent_remove_download(Download *dl, bool keep);
+class Session {
+public:
+    Session();
+    ~Session();
+
+    void
+    register_alert_listener(Alert_Listener* al);
+
+    void
+    unregister_alert_listener(Alert_Listener* al);
+
+    std::unique_ptr<lt::session>&
+    get()
+    {
+        return m_session;
+    }
+
+private:
+    std::unique_ptr<lt::session> m_session;
+
+    std::thread m_session_thread;
+
+    std::atomic<bool> m_session_thread_quit;
+
+    std::forward_list<Alert_Listener*> m_listeners;
+
+    std::mutex m_listeners_mtx;
+};
 
 #endif

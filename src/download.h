@@ -20,264 +20,83 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef VLC_BITTORRENT_DOWNLOAD_H
 #define VLC_BITTORRENT_DOWNLOAD_H
 
-#include <queue>
-#include <thread>
+#include <atomic>
+#include <forward_list>
 #include <memory>
 #include <mutex>
-#include <condition_variable>
-#include <stdexcept>
-#include <forward_list>
+#include <thread>
 
-#include "libtorrent.h"
-#include "vlc.h"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wconversion"
+#include <libtorrent/alert.hpp>
+#include <libtorrent/peer_request.hpp>
+#include <libtorrent/session.hpp>
+#include <libtorrent/torrent_handle.hpp>
+#pragma GCC diagnostic pop
 
-#define HIGHEST_PRIORITY 7
-#define HIGH_PRIORITY 6
-#define SLIDING_WINDOW_SIZE 20
+#include "session.h"
 
 namespace lt = libtorrent;
-
-class Request;
-
-class Queue {
-
-public:
-
-	Queue()
-	{
-		vlc_mutex_init(&m_mutex);
-	}
-
-	void
-	process_alert(lt::alert *alert);
-
-	void
-	add(Request *req);
-
-	void
-	remove(Request *req);
-
-private:
-
-	std::forward_list<Request *> m_requests;
-
-	/**
-	 * Protects m_requests.
-	 */
-	vlc_mutex_t m_mutex;
-};
-
-class Request {
-
-public:
-
-	Request(Queue& q) : m_queue(q)
-	{
-		vlc_sem_init(&sem, 0);
-
-		// Queue this item so it gets all callbacks
-		m_queue.add(this);
-	}
-
-	~Request()
-	{
-		m_queue.remove(this);
-	}
-
-	void
-	wait()
-	{
-		while (!is_complete()) {
-			if (vlc_sem_wait_i11e(&sem) != 0)
-				throw std::runtime_error("Request aborted");
-		}
-	}
-
-	virtual bool
-	is_complete()
-	{
-		return false;
-	}
-
-	virtual void
-	handle_alert(lt::alert *alert)
-	{
-	}
-
-protected:
-
-	void
-	complete()
-	{
-		vlc_sem_post(&sem);
-	}
-
-private:
-
-	Queue& m_queue;
-
-	vlc_sem_t sem;
-};
-
-class Add_Request : public Request {
-
-public:
-
-	Add_Request(Queue& q, lt::torrent_handle h) : Request(q), m_handle(h)
-	{
-	}
-
-	bool
-	is_complete();
-
-	void
-	handle_alert(lt::alert *a);
-
-private:
-
-	lt::torrent_handle m_handle;
-};
-
-class Read_Request : public Request {
-
-public:
-
-	Read_Request(Queue& q, lt::torrent_handle& h, lt::peer_request& p,
-			char *b, size_t bl) : Request(q), handle(h), part(p), buf(b),
-				buflen(bl)
-	{
-		// TODO: bounds check piece
-
-		if (!handle.have_piece(part.piece))
-			throw std::runtime_error("Can't read a piece we don̈́'t have");
-
-		handle.read_piece(part.piece);
-	}
-
-	bool
-	is_complete();
-
-	void
-	handle_alert(lt::alert *a);
-
-	ssize_t
-	get_size() {
-		return size;
-	}
-
-private:
-
-	lt::torrent_handle handle;
-
-	lt::peer_request part;
-
-	char *buf;
-
-	size_t buflen;
-
-	// Number of bytes copied
-	ssize_t size = 0;
-};
-
-class Download_Request : public Request {
-
-public:
-
-	Download_Request(Queue& q, lt::torrent_handle& h, lt::peer_request& p) :
-			Request(q), handle(h), part(p)
-	{
-		handle.piece_priority(part.piece, HIGHEST_PRIORITY);
-	}
-
-	bool
-	is_complete();
-
-	void
-	handle_alert(lt::alert *a);
-
-private:
-
-	lt::torrent_handle handle;
-
-	lt::peer_request part;
-};
 
 class Download {
 
 public:
+    Download(const Download&) = delete;
+    Download&
+    operator=(const Download&)
+        = delete;
+    Download(char* md, size_t mdsz, std::string sp, bool k);
+    Download(std::string u, std::string sp, bool k);
+    ~Download();
 
-	Download(bool keep);
-	~Download();
+    /**
+     * Get a part of the data of this download. If the data is not
+     * available, it will download it and wait for it to become available.
+     */
+    ssize_t
+    read(int file, int64_t off, char* buf, size_t buflen);
 
-	void
-	load(std::string uri, std::string save_path);
+    static std::vector<std::pair<std::string, uint64_t>>
+    get_files(char* metadata, size_t metadatalen);
 
-	void
-	load(char *metadata, size_t metadatalen, std::string save_path);
+    std::vector<std::pair<std::string, uint64_t>>
+    get_files();
 
-	/**
-	 * Get a part of the data of this download. If the data is not available,
-	 * it will download it and wait for it to become available.
-	 */
-	ssize_t
-	read(int file, uint64_t off, char *buf, size_t buflen);
+    static std::shared_ptr<std::vector<char>>
+    get_metadata(
+        std::string url, std::string save_path, std::string cache_path);
 
-	std::vector<std::pair<std::string,uint64_t> >
-	get_files();
+    std::shared_ptr<std::vector<char>>
+    get_metadata();
 
-	uint64_t
-	get_file_size_by_index(int index);
+    std::shared_ptr<std::vector<char>>
+    get_metadata_and_write_to_file(std::string path);
 
-	int
-	get_file_index_by_path(std::string path);
+    std::pair<int, uint64_t>
+    get_file(std::string path);
 
-	std::string
-	get_name();
+    std::string
+    get_name();
 
-	std::string
-	get_infohash();
-
-	std::shared_ptr<std::vector<char> >
-	get_metadata();
-
-	void
-	handle_alert(lt::alert *alert);
-
-	friend void
-	libtorrent_add_download(Download *dl, lt::add_torrent_params& atp);
-
-	friend void
-	libtorrent_remove_download(Download *dl);
+    std::string
+    get_infohash();
 
 private:
+    void
+    download_metadata();
 
-	/**
-	 * First unfinished piece.
-	 */
-	int m_window_start = 0;
+    void
+    download(lt::peer_request part);
 
-	lt::session *m_session;
+    ssize_t
+    read(lt::peer_request part, char* buf, size_t buflen);
 
-	/**
-	 * Active download. May be invalid.
-	 */
-	lt::torrent_handle m_torrent_handle;
+    Session m_session;
 
-	bool m_keep;
+    lt::torrent_handle m_th;
 
-	Queue m_queue;
-
-	void
-	add(lt::add_torrent_params& atp);
-
-	void
-	download_range(int file, int64_t offset, int64_t size);
-
-	void
-	move_window(int piece);
-
-	void
-	move_window();
+    bool m_keep;
 };
 
 #endif

@@ -1,6 +1,6 @@
 VLCDUMMY ITEM magnet:?xt=urn:btih:fce002e43ed1159f4612982ce8fcdb9d30e48f1e&dn=sweden.png
 VLCDUMMY STATE magnet:?xt=urn:btih:fce002e43ed1159f4612982ce8fcdb9d30e48f1e&dn=sweden.png OPENING
 VLCDUMMY STATE magnet:?xt=urn:btih:fce002e43ed1159f4612982ce8fcdb9d30e48f1e&dn=sweden.png PLAYING
-VLCDUMMY SUBITEM sweden.png
+VLCDUMMY SUBITEM sweden.png (FILE)
 VLCDUMMY STATE magnet:?xt=urn:btih:fce002e43ed1159f4612982ce8fcdb9d30e48f1e&dn=sweden.png ENDED (0 audio frames, 0 video frames)
 VLCDUMMY END

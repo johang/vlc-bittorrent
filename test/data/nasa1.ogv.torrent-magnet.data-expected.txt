@@ -1,7 +1,7 @@
 VLCDUMMY ITEM magnet:?xt=urn:btih:8a32f3f6f3c9125da79e29c869122758004ee837&dn=nasa1.ogv
 VLCDUMMY STATE magnet:?xt=urn:btih:8a32f3f6f3c9125da79e29c869122758004ee837&dn=nasa1.ogv OPENING
 VLCDUMMY STATE magnet:?xt=urn:btih:8a32f3f6f3c9125da79e29c869122758004ee837&dn=nasa1.ogv PLAYING
-VLCDUMMY SUBITEM nasa1.ogv
+VLCDUMMY SUBITEM nasa1.ogv (FILE)
 VLCDUMMY STATE magnet:?xt=urn:btih:8a32f3f6f3c9125da79e29c869122758004ee837&dn=nasa1.ogv ENDED (0 audio frames, 0 video frames)
 VLCDUMMY STATE nasa1.ogv OPENING
 VLCDUMMY STATE nasa1.ogv PLAYING

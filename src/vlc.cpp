@@ -17,89 +17,74 @@ You should have received a copy of the GNU General Public License
 along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
 
-#include <string>
+#include <cerrno>
+
+#include <memory>
 #include <stdexcept>
-#include <errno.h>
+#include <string>
 
 #include "vlc.h"
 
 std::string
-get_download_directory(vlc_object_t *p_this)
+get_download_directory(vlc_object_t* p_this)
 {
-	char *dir = var_InheritString(p_this, "bittorrent-download-path");
+    std::string dldir;
 
-	if (!dir)
-		dir = config_GetUserDir(VLC_DOWNLOAD_DIR);
+    std::unique_ptr<char> dir(var_InheritString(p_this, DLDIR_CONFIG));
+    if (!dir) {
+        std::unique_ptr<char> dir(config_GetUserDir(VLC_DOWNLOAD_DIR));
+        if (!dir)
+            throw std::runtime_error("Failed to find download directory");
 
-	if (vlc_mkdir(dir, 0777)) {
-		if (errno != EEXIST)
-			throw std::runtime_error(
-				std::string("") +
-				"Failed to create download directory (" + dir + "): " +
-				strerror(errno));
-	}
+        dldir = std::string(dir.get());
 
-	std::string path;
+        if (vlc_mkdir(dldir.c_str(), 0777)) {
+            if (errno != EEXIST)
+                throw std::runtime_error("Failed to create directory (" + dldir
+                    + "): " + strerror(errno));
+        }
 
-	path += dir;
-	path += DIR_SEP;
-	path += PACKAGE;
+        dldir += DIR_SEP;
+        dldir += PACKAGE;
+    } else {
+        dldir = std::string(dir.get());
+    }
 
-	free(dir);
+    if (vlc_mkdir(dldir.c_str(), 0777)) {
+        if (errno != EEXIST)
+            throw std::runtime_error("Failed to create directory (" + dldir
+                + "): " + strerror(errno));
+    }
 
-	if (vlc_mkdir(path.c_str(), 0777)) {
-		if (errno != EEXIST)
-			throw std::runtime_error(
-				std::string("") +
-				"Failed to create download directory (" + path + "): " +
-				strerror(errno));
-	}
-
-	return path;
+    return dldir;
 }
 
 std::string
-get_cache_directory(vlc_object_t *p_this)
+get_cache_directory(vlc_object_t* p_this)
 {
-	char *dir = config_GetUserDir(VLC_CACHE_DIR);
+    std::string cachedir;
 
-	if (vlc_mkdir(dir, 0777)) {
-		if (errno != EEXIST)
-			throw std::runtime_error(
-				std::string("") +
-				"Failed to create cache directory (" + dir + "): " +
-				strerror(errno));
-	}
+    std::unique_ptr<char> dir(config_GetUserDir(VLC_CACHE_DIR));
+    if (!dir)
+        throw std::runtime_error("Failed to find cache directory");
 
-	std::string path(dir);
+    cachedir = std::string(dir.get());
 
-	free(dir);
+    if (vlc_mkdir(cachedir.c_str(), 0777)) {
+        if (errno != EEXIST)
+            throw std::runtime_error("Failed to create directory (" + cachedir
+                + "): " + strerror(errno));
+    }
 
-	return path;
+    return cachedir;
 }
 
 bool
-get_add_video_files(vlc_object_t *p_this)
+get_keep_files(vlc_object_t* p_this)
 {
-	return var_InheritBool(p_this, "bittorrent-add-video-files");
-}
-
-bool
-get_add_audio_files(vlc_object_t *p_this)
-{
-	return var_InheritBool(p_this, "bittorrent-add-audio-files");
-}
-
-bool
-get_add_image_files(vlc_object_t *p_this)
-{
-	return var_InheritBool(p_this, "bittorrent-add-image-files");
-}
-
-bool
-get_keep_files(vlc_object_t *p_this)
-{
-	return var_InheritBool(p_this, "bittorrent-keep-files");
+    return var_InheritBool(p_this, KEEP_CONFIG);
 }

@@ -1,8 +1,9 @@
 VLCDUMMY ITEM flags.torrent
 VLCDUMMY STATE flags.torrent OPENING
 VLCDUMMY STATE flags.torrent PLAYING
-VLCDUMMY SUBITEM /denmark.png
-VLCDUMMY SUBITEM /norway.png
-VLCDUMMY SUBITEM /sweden.png
+VLCDUMMY SUBITEM flags (DIRECTORY)
+VLCDUMMY SUBITEM denmark.png (FILE)
+VLCDUMMY SUBITEM norway.png (FILE)
+VLCDUMMY SUBITEM sweden.png (FILE)
 VLCDUMMY STATE flags.torrent ENDED (0 audio frames, 0 video frames)
 VLCDUMMY END

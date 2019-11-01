@@ -20,47 +20,46 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef VLC_BITTORRENT_VLC_H
 #define VLC_BITTORRENT_VLC_H
 
-// Workaround because VLC's vlc_atomic.h is borked for VLC 2.2.x.
-#ifndef VLC_ATOMIC_H
-#define VLC_ATOMIC_H
-#include <atomic>
+#ifdef HAVE_CONFIG_H
+#include "config.h"
 #endif
+
+#include <string>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-conversion"
 #pragma GCC diagnostic ignored "-Wconversion"
+// clang-format off
+// This has to be first because the libvlc headers have issues
 #include <vlc_common.h>
-#include <vlc_plugin.h>
-#include <vlc_input.h>
-#include <vlc_demux.h>
+// clang-format off
 #include <vlc_access.h>
+#include <vlc_demux.h>
+#include <vlc_dialog.h>
+#include <vlc_es.h>
+#include <vlc_fs.h>
+#include <vlc_input.h>
+#include <vlc_input_item.h>
+#include <vlc_interface.h>
+#include <vlc_interrupt.h>
+#include <vlc_plugin.h>
 #include <vlc_stream.h>
+#include <vlc_stream_extractor.h>
+#include <vlc_threads.h>
 #include <vlc_url.h>
 #include <vlc_variables.h>
-#include <vlc_fs.h>
-#include <vlc_es.h>
-#include <vlc_stream.h>
-#include <vlc_interrupt.h>
-#include <vlc_threads.h>
-#include <vlc_interface.h>
 #pragma GCC diagnostic pop
 
-std::string
-get_download_directory(vlc_object_t *p_this);
+#define DLDIR_CONFIG "bittorrent-download-path"
+#define KEEP_CONFIG "bittorrent-keep-files"
 
 std::string
-get_cache_directory(vlc_object_t *p_this);
+get_download_directory(vlc_object_t* p_this);
+
+std::string
+get_cache_directory(vlc_object_t* p_this);
 
 bool
-get_add_video_files(vlc_object_t *p_this);
-
-bool
-get_add_audio_files(vlc_object_t *p_this);
-
-bool
-get_add_image_files(vlc_object_t *p_this);
-
-bool
-get_keep_files(vlc_object_t *p_this);
+get_keep_files(vlc_object_t* p_this);
 
 #endif

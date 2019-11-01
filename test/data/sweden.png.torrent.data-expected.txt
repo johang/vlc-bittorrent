@@ -1,7 +1,7 @@
 VLCDUMMY ITEM sweden.png.torrent
 VLCDUMMY STATE sweden.png.torrent OPENING
 VLCDUMMY STATE sweden.png.torrent PLAYING
-VLCDUMMY SUBITEM sweden.png
+VLCDUMMY SUBITEM sweden.png (FILE)
 VLCDUMMY STATE sweden.png.torrent ENDED (0 audio frames, 0 video frames)
 VLCDUMMY STATE sweden.png OPENING
 VLCDUMMY STATE sweden.png PLAYING

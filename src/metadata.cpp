@@ -17,241 +17,79 @@ You should have received a copy of the GNU General Public License
 along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
 
-#include <string>
-#include <fstream>
+#include <memory>
 #include <vector>
-
-#include "libtorrent.h"
-#include "vlc.h"
 
 #include "download.h"
 #include "metadata.h"
+#include "vlc.h"
 
 #define D(x)
 
-#define STREAM_BLOCK_MAX_SIZE (1 * 1024)
-#define STREAM_METADATA_MAX_SIZE (1 * 1024 * 1024)
-
 static int
-MetadataDemux(demux_t *p_demux);
-
-static int
-MetadataReadDir(stream_t *p_demux, input_item_node_t *p_subitems);
-
-int
-MetadataOpen(vlc_object_t *p_this)
+MetadataReadDir(stream_directory_t* p_directory, input_item_node_t* p_node)
 {
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-	stream_t *p_stream = (stream_t *) p_this;
+    // Temporary buffer to hold metadata
+    auto md = std::make_unique<char[]>(0x100000);
 
-	p_stream->pf_readdir = MetadataReadDir;
-	p_stream->pf_control = access_vaDirectoryControlHelper;
+    ssize_t mdsz = vlc_stream_Read(p_directory->source, md.get(), 0x100000);
+    if (mdsz < 0)
+        return VLC_EGENERIC;
 
-	bool match = false;
+    std::vector<std::pair<std::string, uint64_t>> files;
+    try {
+        files = Download::get_files(md.get(), (size_t) mdsz);
+    } catch (std::runtime_error& e) {
+        msg_Err(p_directory, "Failed to parse metadata: %s", e.what());
+        return VLC_EGENERIC;
+    }
 
-	if (stream_HasExtension(p_stream->p_source, ".torrent"))
-		match = true;
+    struct vlc_readdir_helper rdh;
+    vlc_readdir_helper_init(&rdh, p_directory, p_node);
 
-	if (stream_IsMimeType(p_stream->p_source, "application/x-bittorrent"))
-		match = true;
+    for (auto f : files) {
+        std::unique_ptr<char> mrl(
+            vlc_stream_extractor_CreateMRL(p_directory, f.first.c_str()));
+        if (!mrl)
+            continue;
 
-	const uint8_t *data = NULL;
+        int ret = vlc_readdir_helper_additem(
+            &rdh, mrl.get(), f.first.c_str(), NULL, ITEM_TYPE_FILE, ITEM_LOCAL);
+        if (ret != VLC_SUCCESS)
+            msg_Warn(p_directory, "Failed to add %s", mrl.get());
+    }
 
-	// Attempt to read 1 byte of the metadata
-	ssize_t len = vlc_stream_Peek(p_stream->p_source, &data, 1);
+    vlc_readdir_helper_finish(&rdh, true);
 
-	// All bittorrent metadata files starts with a 'd'
-	if (len < 1 || memcmp(data, "d", 1))
-		return VLC_EGENERIC;
-
-	return match ? VLC_SUCCESS : VLC_EGENERIC;
-}
-
-static bool
-read_stream(stream_t *p_stream, char **buf, size_t *buf_sz)
-{
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
-
-	*buf_sz = 0;
-	*buf = NULL;
-
-	p_stream = p_stream->p_source;
-
-	while (!vlc_stream_Eof(p_stream)) {
-		block_t *b = vlc_stream_Block(p_stream, STREAM_BLOCK_MAX_SIZE);
-
-		// That function can return NULL spuriously
-		if (!b)
-			continue;
-
-		*buf_sz = *buf_sz + b->i_buffer;
-		*buf = (char *) realloc(*buf, *buf_sz);
-
-		// Enlarge the buffer and copy new contents to it
-		memcpy(*buf + *buf_sz - b->i_buffer, b->p_buffer, b->i_buffer);
-
-		block_Release(b);
-	}
-
-	return *buf_sz > 0;
-}
-
-static bool
-has_extension(std::string file, std::string ext)
-{
-	auto filei = file.crbegin();
-	auto exti = ext.crbegin();
-
-	while (filei != file.crend() && exti != ext.crend()) {
-		if (*filei != *exti)
-			return false;
-
-		filei++;
-		exti++;
-	}
-
-	if (filei == file.crend() || exti != ext.crend())
-		return false;
-
-	return *filei == '.';
-}
-
-static bool
-is_subtitle_of(std::string video, std::string subtitle) {
-	size_t begin = video.find_last_of('/');
-	if (begin == std::string::npos)
-		begin = 0;
-
-	std::string base;
-
-	size_t end = video.find_last_of('.');
-	if (end == std::string::npos)
-		base = video.substr(begin);
-	else
-		base = video.substr(begin, end - begin);
-
-	return subtitle.find(base) != std::string::npos;
-}
-
-static void
-build_playlist(stream_t *p_demux, input_item_node_t *p_subitems, Download& d)
-{
-	std::string path = get_cache_directory((vlc_object_t *) p_demux) +
-		DIR_SEP + PACKAGE_NAME + "-" + d.get_infohash() + ".torrent";
-
-	// Stream to output metadata to
-	std::ofstream out(path, std::ios_base::binary);
-
-	// The metadata in bencoded form
-	std::shared_ptr<std::vector<char> > md = d.get_metadata();
-
-	// Dump metadata to file
-	std::copy(md->begin(), md->end(), std::ostreambuf_iterator<char>(out));
-
-	input_item_t *p_current_input = input_GetItem(p_demux->p_input);
-
-	// How many characters to remove from the beginning of each title
-	size_t offset = (d.get_files().size() > 1) ? d.get_name().length() : 0;
-
-	// Valid file extensions
-	std::vector<std::string> video_ext{ EXTENSIONS_VIDEO_CSV };
-	std::vector<std::string> audio_ext{ EXTENSIONS_AUDIO_CSV };
-	std::vector<std::string> image_ext{ EXTENSIONS_IMAGE_CSV };
-
-	std::vector<std::string> ext;
-
-	if (get_add_video_files((vlc_object_t *) p_demux))
-		ext.insert(ext.end(), video_ext.begin(), video_ext.end());
-
-	if (get_add_audio_files((vlc_object_t *) p_demux))
-		ext.insert(ext.end(), audio_ext.begin(), audio_ext.end());
-
-	if (get_add_image_files((vlc_object_t *) p_demux))
-		ext.insert(ext.end(), image_ext.begin(), image_ext.end());
-
-	int num_media_files = 0;
-
-	for (auto f : d.get_files()) {
-		for (auto e : ext) {
-			if (has_extension(f.first, e)) {
-				num_media_files++;
-				break;
-			}
-		}
-	}
-
-	for (auto f : d.get_files()) {
-		bool add = false;
-
-		for (auto e : ext) {
-			if (has_extension(f.first, e))
-				add = true;
-		}
-
-		if (!add)
-			continue;
-
-		std::string mrl = "bittorrent://" + path + "?" + f.first;
-
-		std::string title(f.first.substr(offset));
-
-		input_item_t *p_input = input_item_New(mrl.c_str(), title.c_str());
-
-		for (auto s : d.get_files()) {
-			enum slave_type type;
-
-			if (!input_item_slave_GetType(s.first.c_str(), &type))
-				continue;
-
-			if (type != SLAVE_TYPE_SPU)
-				continue;
-
-			// If we only have one media file to play we add all subtitles
-			if (num_media_files != 1 && !is_subtitle_of(f.first, s.first))
-				continue;
-
-			std::string smrl = "bittorrent://" + path + "?" + s.first;
-
-			input_item_AddSlave(p_input, input_item_slave_New(smrl.c_str(),
-				type, SLAVE_PRIORITY_MATCH_NONE));
-		}
-
-		input_item_CopyOptions(p_input, p_current_input);
-		input_item_node_AppendItem(p_subitems, p_input);
-		input_item_Release(p_input);
-	}
+    return VLC_SUCCESS;
 }
 
 int
-MetadataReadDir(stream_t *p_demux, input_item_node_t *p_subitems)
+MetadataOpen(vlc_object_t* p_obj)
 {
-	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-	char *buf = NULL;
-	size_t buf_sz = 0;
+    stream_directory_t* p_directory = (stream_directory_t*) p_obj;
 
-	if (!read_stream(p_demux, &buf, &buf_sz)) {
-		msg_Err(p_demux, "Stream was empty");
-		return -1;
-	}
+    if (!stream_IsMimeType(p_directory->source, "application/x-bittorrent")
+        && !stream_HasExtension(p_directory->source, ".torrent"))
+        return VLC_EGENERIC;
 
-	Download d(get_keep_files((vlc_object_t *) p_demux));
+    // Attempt to read 1 byte of the metadata
+    const uint8_t* data = NULL;
+    ssize_t len = vlc_stream_Peek(p_directory->source, &data, 1);
 
-	try {
-		// Parse metadata
-		d.load(buf, buf_sz, get_download_directory((vlc_object_t *) p_demux));
+    // All bittorrent metadata files starts with a 'd'
+    if (len < 1 || data[0] != 'd')
+        return VLC_EGENERIC;
 
-		// Build playlist
-		build_playlist(p_demux, p_subitems, d);
-	} catch (std::runtime_error& e) {
-		msg_Err(p_demux, "Failed to parse metadata: %s", e.what());
-		return -1;
-	}
+    p_directory->pf_readdir = MetadataReadDir;
 
-	free(buf);
-
-	return 0;
+    return VLC_SUCCESS;
 }

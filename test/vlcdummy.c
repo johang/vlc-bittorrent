@@ -45,6 +45,8 @@ static pthread_mutex_t state_change_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static const char *args[] = {
 	"--ignore-config",
+	"--ignore-filetypes",
+	"̈́''",
 	"-I",
 	"dummy",
 	"--no-media-library",
@@ -52,10 +54,7 @@ static const char *args[] = {
 	"--aout=dummy",
 	"--reset-plugins-cache",
 	"--bittorrent-download-path",
-	"/tmp",
-	"--bittorrent-add-video-files",
-	"--bittorrent-add-audio-files",
-	"--bittorrent-add-image-files",
+	".",
 	"--bittorrent-keep-files",
 	"--image-duration",
 	"1",
@@ -76,12 +75,20 @@ media_subitemadded(libvlc_media_t *parent, libvlc_media_t *media)
 	libvlc_event_manager_t *mem = libvlc_media_event_manager(media);
 	assert(mem != NULL);
 
+	libvlc_event_attach(mem, libvlc_MediaSubItemAdded, media_event_handler, NULL);
 	libvlc_event_attach(mem, libvlc_MediaStateChanged, media_event_handler, NULL);
 
 	if (print_subitems) {
+		char *type = "UNKNOWN TYPE";
+		if (libvlc_media_get_type(media) == libvlc_media_type_directory) {
+			type = "DIRECTORY";
+		} else if (libvlc_media_get_type(media) == libvlc_media_type_file) {
+			type = "FILE";
+		}
+
 		printf(
-			"VLCDUMMY SUBITEM %s\n",
-			libvlc_media_get_meta(media, libvlc_meta_Title));
+			"VLCDUMMY SUBITEM %s (%s)\n",
+			libvlc_media_get_meta(media, libvlc_meta_Title), type);
 	}
 }
 
