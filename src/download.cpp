@@ -318,7 +318,7 @@ Download::move_window(int piece)
 		return;
 
 	// Move to first unfinished piece
-	for (; m_torrent_handle.have_piece(piece) && piece < np; piece++);
+	for (; piece < np && m_torrent_handle.have_piece(piece) ; piece++);
 
 	m_window_start = piece;
 
