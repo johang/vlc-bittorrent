@@ -1,5 +1,5 @@
 AC_PREREQ([2.69])
-AC_INIT(vlc-plugin-bittorrent, 2.7, johan.gunnarsson@gmail.com, vlc-bittorrent, https://github.com/johang/vlc-bittorrent)
+AC_INIT(vlc-plugin-bittorrent, 2.8, johan.gunnarsson@gmail.com, vlc-bittorrent, https://github.com/johang/vlc-bittorrent)
 AC_CONFIG_SRCDIR([src/module.cpp])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
