@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <chrono> // for std::chrony
+#include <chrono>
 #include <iostream>
 #include <utility> // for std::move
 
@@ -57,12 +57,13 @@ main(int argc, char const* argv[]) {
 			try {
 				lt::add_torrent_params atp;
 				atp.save_path = ".";
+				std::string path = argv[i];
 #if LIBTORRENT_VERSION_NUM < 10100
-				atp.ti = new libtorrent::torrent_info(argv[i]);
+				atp.ti = new libtorrent::torrent_info(path);
 #elif LIBTORRENT_VERSION_NUM < 10200
-				atp.ti = boost::make_shared<libtorrent::torrent_info>(argv[i]);
+				atp.ti = boost::make_shared<libtorrent::torrent_info>(path);
 #else
-				atp.ti = std::make_shared<libtorrent::torrent_info>(argv[i]);
+				atp.ti = std::make_shared<libtorrent::torrent_info>(path);
 #endif
 
 				lt::torrent_handle h = ses.add_torrent(std::move(atp));

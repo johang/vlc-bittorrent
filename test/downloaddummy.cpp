@@ -17,10 +17,8 @@ You should have received a copy of the GNU General Public License
 along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <unistd.h>
-#include <stdlib.h>
-#include <assert.h>
-#include <string.h>
+#include <iostream>
+#include <string>
 
 #include "download.h"
 
@@ -70,13 +68,15 @@ int
 main(int argc, char *argv[])
 {
 	for (int i = 0; i < argc; i++) {
-		if (strcmp(argv[i], "--show-metadata") == 0) {
+		std::string arg = argv[i];
+
+		if (arg == "--show-metadata") {
 			show_metadata = true;
-		} else if (strcmp(argv[i], "--show-read") == 0) {
+		} else if (arg == "--show-read") {
 			show_read = true;
-		} else if (strcmp(argv[i], "--abort-metadata") == 0) {
+		} else if (arg == "--abort-metadata") {
 			abort_metadata = true;
-		} else if (strcmp(argv[i], "--abort-read") == 0) {
+		} else if (arg == "--abort-read") {
 			abort_read = true;
 		}
 	}
