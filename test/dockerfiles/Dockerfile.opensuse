@@ -13,4 +13,4 @@ RUN zypper update -y && zypper install -y \
     libboost_system*-devel \
     libtorrent-rasterbar-devel \
     vlc-devel
-CMD autoreconf -i && ./configure && make && (make check || (cat test/*.log && false))
+CMD autoreconf -i && ./configure --with-tests && make && (make check || (cat test/*.log && false))

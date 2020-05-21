@@ -1,3 +1,6 @@
 AUTOMAKE_OPTIONS = foreign
-SUBDIRS = src test data
+SUBDIRS = src data
+if WITH_TESTS
+  SUBDIRS += test
+endif
 EXTRA_DIST = LICENSE
