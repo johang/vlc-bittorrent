@@ -13,7 +13,7 @@ env:
   - IMAGE=debian:testing DOCKERFILE=debian
   - IMAGE=debian:unstable DOCKERFILE=debian
   - IMAGE=opensuse/leap:latest DOCKERFILE=opensuse
-  - IMAGE=opensuse/tumbleweed:latest DOCKERFILE=opensuse
+#  - IMAGE=opensuse/tumbleweed:latest DOCKERFILE=opensuse
 before_install:
   - docker build --build-arg IMAGE=$IMAGE -t img -f test/dockerfiles/Dockerfile.$DOCKERFILE .
 script:
