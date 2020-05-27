@@ -5,6 +5,7 @@ WORKDIR /vlc-bittorrent
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get -y install \
     autoconf \
+    autoconf-archive \
     automake \
     build-essential \
     clang \

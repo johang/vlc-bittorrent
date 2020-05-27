@@ -4,6 +4,7 @@ COPY . /vlc-bittorrent
 WORKDIR /vlc-bittorrent
 RUN zypper update -y && zypper install -y \
     autoconf \
+    autoconf-archive \
     automake \
     libtool \
     make \
