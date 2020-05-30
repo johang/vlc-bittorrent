@@ -46,11 +46,13 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 
 static lt::session *g_session;
 
+static std::thread *g_session_thread;
+
 static std::list<Download *> g_downloads;
 
-static std::mutex g_mutex;
+static std::mutex g_mutex_session;
 
-static std::condition_variable g_session_cond;
+static std::mutex g_mutex_downloads;
 
 static void
 destroy_session()
@@ -68,6 +70,18 @@ destroy_session()
 }
 
 static void
+destroy_session_thread()
+{
+	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+	g_session_thread->join();
+
+	delete g_session_thread;
+
+	g_session_thread = NULL;
+}
+
+static void
 session_thread()
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
@@ -80,7 +94,7 @@ session_thread()
 		// Get all pending requests
 		g_session->pop_alerts(&alerts);
 
-		std::unique_lock<std::mutex> lock(g_mutex);
+		std::unique_lock<std::mutex> lock(g_mutex_downloads);
 
 		for (auto *a : alerts) {
 			DD(std::cout << "got alert (" << typeid(*a).name() << "): " <<
@@ -91,17 +105,8 @@ session_thread()
 			}
 		}
 
-		if (g_downloads.size() == 0) {
-			g_session_cond.wait_for(lock, std::chrono::seconds(5));
-
-			// We've had 0 downloads for >5 seconds -- quit
-			if (g_downloads.size() == 0) {
-				destroy_session();
-
-				// Stop thread
-				return;
-			}
-		}
+		if (g_downloads.size() == 0)
+			break;
 	}
 }
 
@@ -129,8 +134,14 @@ create_session()
 #endif
 
 	g_session = new lt::session(sp, LIBTORRENT_ADD_TORRENT_FLAGS);
+}
 
-	std::thread(session_thread).detach();
+static void
+create_session_thread()
+{
+	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+	g_session_thread = new std::thread(session_thread);
 }
 
 void
@@ -138,19 +149,23 @@ libtorrent_add_download(Download *dl, lt::add_torrent_params& atp)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-	std::lock_guard<std::mutex> lock(g_mutex);
+	std::lock_guard<std::mutex> lock(g_mutex_session);
+
+	{
+		std::lock_guard<std::mutex> lock(g_mutex_downloads);
+
+		// Add download to the list of downloads that gets alerts
+		g_downloads.push_front(dl);
+	}
 
 	if (!g_session)
 		create_session();
 
-	// Add download to the list of downloads that gets alerts
-	g_downloads.push_front(dl);
+	if (!g_session_thread)
+		create_session_thread();
 
 	// Add torrent (possibly a duplicate)
 	dl->m_torrent_handle = g_session->add_torrent(atp);
-
-	// Tell destroyer that something has happened
-	g_session_cond.notify_one();
 }
 
 void
@@ -158,14 +173,22 @@ libtorrent_remove_download(Download *dl)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-	std::lock_guard<std::mutex> lock(g_mutex);
+	bool empty_session;
 
-	if (!g_session)
-		return;
+	std::lock_guard<std::mutex> lock(g_mutex_session);
 
-	// Remove download from the list of downloads that gets alerts
-	g_downloads.remove(dl);
+	{
+		std::lock_guard<std::mutex> lock(g_mutex_downloads);
 
-	// Tell destroyer that something has happened
-	g_session_cond.notify_one();
+		// Remove download from the list of downloads that gets alerts
+		g_downloads.remove(dl);
+
+		empty_session = g_downloads.size() == 0;
+	}
+
+	if (empty_session) {
+		destroy_session_thread();
+
+		destroy_session();
+	}
 }
