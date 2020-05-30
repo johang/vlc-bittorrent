@@ -25,8 +25,8 @@ AC_ARG_WITH(
 AM_CONDITIONAL([WITH_TESTS], [test x$with_tests = xyes])
 AM_COND_IF([WITH_TESTS], [PKG_CHECK_MODULES(LIBVLC, libvlc >= 3.0.0)])
 
-# Compile with -std=c++11 or later
-AX_CXX_COMPILE_STDCXX_11([], mandatory)
+# Compile with -std=c++14 or later
+AX_CXX_COMPILE_STDCXX_14(noext, mandatory)
 
 # Check libtool
 LT_INIT
