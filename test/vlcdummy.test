@@ -26,11 +26,10 @@ mkdir -p $HOME/.local/share/vlc
 
 run_test() {
 	rm -rf /tmp/vlc-bittorrent
-	mkdir -p /tmp/vlc-bittorrent
+	cp -r data /tmp/vlc-bittorrent
 	pushd data
 	../miniclient *.torrent >/dev/null &
 	popd
-	sleep 1
 	echo ./vlcdummy "$3" $2
 	(timeout 60 ./vlcdummy "$3" $2 || :) 2>/dev/null |
 	grep VLCDUMMY |

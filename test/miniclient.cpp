@@ -66,7 +66,7 @@ main(int argc, char const* argv[]) {
 				atp.ti = std::make_shared<libtorrent::torrent_info>(path);
 #endif
 
-				lt::torrent_handle h = ses.add_torrent(std::move(atp));
+				ses.async_add_torrent(atp);
 			} catch(const std::exception& e) {
 				std::cerr << argv[0] << ": Failed to add " << argv[i] <<
 					": " << e.what() << std::endl;

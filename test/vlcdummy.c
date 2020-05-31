@@ -38,6 +38,8 @@ static bool print_item = false;
 static bool print_subitems = false;
 static bool random_seek = false;
 
+static bool playlist_has_ended = false;
+
 static pthread_cond_t state_change_cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t state_change_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -169,6 +171,7 @@ media_list_player_event_handler(const struct libvlc_event_t *p_event, void *p_da
 	switch (p_event->type) {
 	case libvlc_MediaListPlayerPlayed:
 	case libvlc_MediaListPlayerStopped:
+		playlist_has_ended = true;
 		pthread_cond_broadcast(&state_change_cond);
 		break;
 	default:
@@ -196,11 +199,9 @@ play_media_list(libvlc_instance_t *vlc, libvlc_media_list_t *ml)
 	/* Start playing media list */
 	libvlc_media_list_player_play(mlp);
 
-	sleep(10);
-
-	libvlc_media_player_t *mp = libvlc_media_list_player_get_media_player(mlp);
-
 	if (random_seek) {
+		libvlc_media_player_t *mp = libvlc_media_list_player_get_media_player(mlp);
+
 		for (int i = 0; i < 100; i++) {
 			/* Random seek to between 0% and 90% of the file */
 			libvlc_media_player_set_position(mp,
@@ -213,13 +214,17 @@ play_media_list(libvlc_instance_t *vlc, libvlc_media_list_t *ml)
 
 		/* Seek to end of file */
 		libvlc_media_player_set_position(mp, 1.0f);
+
+		libvlc_media_player_release(mp);
 	}
 
-	while (libvlc_media_list_player_get_state(mlp) != libvlc_Ended) {
+	while (!playlist_has_ended) {
 		pthread_cond_wait(&state_change_cond, &state_change_mutex);
 	}
 
 	libvlc_media_list_release(ml);
+
+	libvlc_media_list_player_release(mlp);
 }
 
 static void
@@ -294,11 +299,7 @@ main(int argc, char **argv)
 
 	libvlc_media_release(md);
 
-	/* Can't do libvlc_release here because vlc will unload libtorrent before
-	   the session thread finishes, which leads to crashes in the
-	   destroy_session function. I guess the way to properly fix this bug is to
-	   drop the session thread altogether. */
-	//libvlc_release(vlc);
+	libvlc_release(vlc);
 
 	printf("VLCDUMMY END\n");
 
