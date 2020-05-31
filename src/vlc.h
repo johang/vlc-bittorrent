@@ -60,4 +60,7 @@ get_add_audio_files(vlc_object_t *p_this);
 bool
 get_add_image_files(vlc_object_t *p_this);
 
+bool
+get_keep_files(vlc_object_t *p_this);
+
 #endif

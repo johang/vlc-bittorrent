@@ -78,7 +78,7 @@ DataOpen(vlc_object_t *p_this)
 
 	access_sys_t *sys = (access_sys_t *) malloc(sizeof (access_sys_t));
 
-	sys->download = new Download();
+	sys->download = new Download(get_keep_files(p_this));
 
 	try {
 		// Parse metadata

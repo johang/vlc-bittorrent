@@ -153,7 +153,7 @@ void Queue::remove(Request *req) {
 	m_requests.remove(req);
 }
 
-Download::Download()
+Download::Download(bool keep) : m_keep(keep)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 }
@@ -162,7 +162,7 @@ Download::~Download()
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-	libtorrent_remove_download(this);
+	libtorrent_remove_download(this, m_keep);
 }
 
 void

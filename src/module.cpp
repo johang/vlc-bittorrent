@@ -43,6 +43,8 @@ vlc_module_begin()
 		"Add audio files to the playlist.", true)
 	add_bool("bittorrent-add-image-files", false, "Add image files",
 		"Add image files to the playlist.", true)
+	add_bool("bittorrent-keep-files", false, "Don't delete files",
+		"Don't delete files after download.", true)
 	add_submodule()
 		/* This module takes a metadata HTTP URL or a metadata file URI and
 		   outputs a playlist containing special URLs in the form

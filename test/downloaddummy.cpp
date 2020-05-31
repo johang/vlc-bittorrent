@@ -84,7 +84,7 @@ main(int argc, char *argv[])
 	if (argc <= 1)
 		return -1;
 
-	Download d;
+	Download d(true);
 
 	try {
 		d.load(argv[1], "/tmp/vlc-bittorrent");

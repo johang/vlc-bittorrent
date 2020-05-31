@@ -206,7 +206,7 @@ class Download {
 
 public:
 
-	Download();
+	Download(bool keep);
 	~Download();
 
 	void
@@ -262,6 +262,8 @@ private:
 	 * Active download. May be invalid.
 	 */
 	lt::torrent_handle m_torrent_handle;
+
+	bool m_keep;
 
 	Queue m_queue;
 

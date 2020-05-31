@@ -97,3 +97,9 @@ get_add_image_files(vlc_object_t *p_this)
 {
 	return var_InheritBool(p_this, "bittorrent-add-image-files");
 }
+
+bool
+get_keep_files(vlc_object_t *p_this)
+{
+	return var_InheritBool(p_this, "bittorrent-keep-files");
+}

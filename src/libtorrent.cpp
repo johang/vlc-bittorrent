@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <iostream>
 #include <mutex>
 #include <condition_variable>
 #include <stdexcept>
@@ -55,12 +56,15 @@ static std::mutex g_mutex_session;
 static std::mutex g_mutex_downloads;
 
 static void
-destroy_session()
+destroy_session(bool keep)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
 	for (auto th : g_session->get_torrents()) {
-		g_session->remove_torrent(th, libtorrent::session::delete_files);
+		if (keep)
+			g_session->remove_torrent(th);
+		else
+			g_session->remove_torrent(th, libtorrent::session::delete_files);
 	}
 
 	// Free the session object -- this might block for a short while
@@ -169,7 +173,7 @@ libtorrent_add_download(Download *dl, lt::add_torrent_params& atp)
 }
 
 void
-libtorrent_remove_download(Download *dl)
+libtorrent_remove_download(Download *dl, bool keep)
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
@@ -189,6 +193,6 @@ libtorrent_remove_download(Download *dl)
 	if (empty_session) {
 		destroy_session_thread();
 
-		destroy_session();
+		destroy_session(keep);
 	}
 }

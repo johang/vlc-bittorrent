@@ -54,6 +54,7 @@ static const char *args[] = {
 	"--bittorrent-add-video-files",
 	"--bittorrent-add-audio-files",
 	"--bittorrent-add-image-files",
+	"--bittorrent-keep-files",
 	"--image-duration",
 	"1",
 };

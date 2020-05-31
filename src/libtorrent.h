@@ -47,6 +47,6 @@ void
 libtorrent_add_download(Download *dl, libtorrent::add_torrent_params& atp);
 
 void
-libtorrent_remove_download(Download *dl);
+libtorrent_remove_download(Download *dl, bool keep);
 
 #endif

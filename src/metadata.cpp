@@ -191,7 +191,7 @@ MetadataReadDir(stream_t *p_demux, input_item_node_t *p_subitems)
 		return -1;
 	}
 
-	Download d;
+	Download d(get_keep_files((vlc_object_t *) p_demux));
 
 	try {
 		// Parse metadata
