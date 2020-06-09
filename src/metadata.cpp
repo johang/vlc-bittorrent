@@ -119,6 +119,23 @@ has_extension(std::string file, std::string ext)
 	return *filei == '.';
 }
 
+static bool
+is_subtitle_of(std::string video, std::string subtitle) {
+	size_t begin = video.find_last_of('/');
+	if (begin == std::string::npos)
+		begin = 0;
+
+	std::string base;
+
+	size_t end = video.find_last_of('.');
+	if (end == std::string::npos)
+		base = video.substr(begin);
+	else
+		base = video.substr(begin, end);
+
+	return subtitle.find(base) != std::string::npos;
+}
+
 static void
 build_playlist(stream_t *p_demux, input_item_node_t *p_subitems, Download& d)
 {
@@ -171,6 +188,24 @@ build_playlist(stream_t *p_demux, input_item_node_t *p_subitems, Download& d)
 		std::string title(f.first.substr(offset));
 
 		input_item_t *p_input = input_item_New(mrl.c_str(), title.c_str());
+
+		for (auto s : d.get_files()) {
+			enum slave_type type;
+
+			if (!input_item_slave_GetType(s.first.c_str(), &type))
+				continue;
+
+			if (type != SLAVE_TYPE_SPU)
+				continue;
+
+			if (!is_subtitle_of(f.first, s.first))
+				continue;
+
+			std::string smrl = "bittorrent://" + path + "?" + s.first;
+
+			input_item_AddSlave(p_input, input_item_slave_New(smrl.c_str(),
+				type, SLAVE_PRIORITY_MATCH_NONE));
+		}
 
 		input_item_CopyOptions(p_input, p_current_input);
 		input_item_node_AppendItem(p_subitems, p_input);
