@@ -78,6 +78,9 @@ destroy_session_thread()
 {
 	D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
+	if (!g_session_thread)
+		return;
+
 	g_session_thread->join();
 
 	delete g_session_thread;
