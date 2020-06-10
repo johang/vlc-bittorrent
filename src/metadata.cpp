@@ -131,7 +131,7 @@ is_subtitle_of(std::string video, std::string subtitle) {
 	if (end == std::string::npos)
 		base = video.substr(begin);
 	else
-		base = video.substr(begin, end);
+		base = video.substr(begin, end - begin);
 
 	return subtitle.find(base) != std::string::npos;
 }
