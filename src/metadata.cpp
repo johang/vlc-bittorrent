@@ -172,6 +172,17 @@ build_playlist(stream_t *p_demux, input_item_node_t *p_subitems, Download& d)
 	if (get_add_image_files((vlc_object_t *) p_demux))
 		ext.insert(ext.end(), image_ext.begin(), image_ext.end());
 
+	int num_media_files = 0;
+
+	for (auto f : d.get_files()) {
+		for (auto e : ext) {
+			if (has_extension(f.first, e)) {
+				num_media_files++;
+				break;
+			}
+		}
+	}
+
 	for (auto f : d.get_files()) {
 		bool add = false;
 
@@ -198,7 +209,8 @@ build_playlist(stream_t *p_demux, input_item_node_t *p_subitems, Download& d)
 			if (type != SLAVE_TYPE_SPU)
 				continue;
 
-			if (!is_subtitle_of(f.first, s.first))
+			// If we only have one media file to play we add all subtitles
+			if (num_media_files != 1 && !is_subtitle_of(f.first, s.first))
 				continue;
 
 			std::string smrl = "bittorrent://" + path + "?" + s.first;
