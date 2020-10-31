@@ -14,8 +14,10 @@ env:
   - IMAGE=opensuse/tumbleweed:latest DOCKERFILE=opensuse
 jobs:
   allow_failures:
-    - env: IMAGE=ubuntu:devel DOCKERFILE=debian
+    - env: IMAGE=debian:stable DOCKERFILE=debian
+    - env: IMAGE=debian:testing DOCKERFILE=debian
     - env: IMAGE=debian:unstable DOCKERFILE=debian
+    - env: IMAGE=opensuse/leap:latest DOCKERFILE=opensuse
     - env: IMAGE=opensuse/tumbleweed:latest DOCKERFILE=opensuse
 before_install:
   - docker build --build-arg IMAGE=$IMAGE -t img -f test/dockerfiles/Dockerfile.$DOCKERFILE .
