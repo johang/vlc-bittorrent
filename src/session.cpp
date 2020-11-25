@@ -31,8 +31,9 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
      "router.utorrent.com:6881," \
      "dht.transmissionbt.com:6881")
 
-Session::Session()
-    : m_session_thread_quit(false)
+Session::Session(std::mutex& mtx)
+    : m_lock(mtx)
+    , m_session_thread_quit(false)
 {
     D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
@@ -107,4 +108,41 @@ Session::unregister_alert_listener(Alert_Listener* al)
     std::unique_lock<std::mutex> lock(m_listeners_mtx);
 
     m_listeners.remove(al);
+}
+
+lt::torrent_handle
+Session::add_torrent(lt::add_torrent_params& atp)
+{
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+    return m_session->add_torrent(atp);
+}
+
+void
+Session::remove_torrent(lt::torrent_handle& th, bool k)
+{
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+    if (k)
+        m_session->remove_torrent(th);
+    else
+        m_session->remove_torrent(th, lt::session::delete_files);
+}
+
+std::shared_ptr<Session>
+Session::get()
+{
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+    static std::mutex mtx;
+    std::unique_lock<std::mutex> lock(mtx);
+
+    // Re-use Session instance if possible, else create new instance
+    static std::weak_ptr<Session> session;
+    static std::mutex session_mtx;
+    std::shared_ptr<Session> s = session.lock();
+    if (!s)
+        session = s = std::make_shared<Session>(session_mtx);
+
+    return s;
 }

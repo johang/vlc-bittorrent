@@ -46,9 +46,12 @@ public:
     Download&
     operator=(const Download&)
         = delete;
-    Download(char* md, size_t mdsz, std::string sp, bool k);
-    Download(std::string u, std::string sp, bool k);
+    Download(std::mutex& mtx, lt::add_torrent_params& atp, bool k);
     ~Download();
+
+    static std::shared_ptr<Download>
+    get_download(
+        char* metadata, size_t metadatalen, std::string save_path, bool keep);
 
     /**
      * Get a part of the data of this download. If the data is not
@@ -83,6 +86,9 @@ public:
     get_infohash();
 
 private:
+    static std::shared_ptr<Download>
+    get_download(lt::add_torrent_params& atp, bool k);
+
     void
     download_metadata();
 
@@ -92,11 +98,14 @@ private:
     ssize_t
     read(lt::peer_request part, char* buf, size_t buflen);
 
-    Session m_session;
-
-    lt::torrent_handle m_th;
+    // Locks mutex passed to constructor
+    std::unique_lock<std::mutex> m_lock;
 
     bool m_keep;
+
+    std::shared_ptr<Session> m_session;
+
+    lt::torrent_handle m_th;
 };
 
 #endif

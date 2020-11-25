@@ -86,7 +86,7 @@ private:
 
 template <typename T> class AlertSubscriber {
 public:
-    AlertSubscriber(Session* dl, T* pr)
+    AlertSubscriber(std::shared_ptr<Session> dl, T* pr)
         : m_session(dl)
         , m_promise(pr)
     {
@@ -99,7 +99,7 @@ public:
     }
 
 private:
-    Session* m_session;
+    std::shared_ptr<Session> m_session;
 
     T* m_promise;
 };
@@ -233,57 +233,17 @@ private:
     lt::sha1_hash m_ih;
 };
 
-Download::Download(char* md, size_t mdsz, std::string save_path, bool keep)
-    : m_keep(keep)
+Download::Download(std::mutex& mtx, lt::add_torrent_params& atp, bool k)
+    : m_lock(mtx)
+    , m_keep(k)
+    , m_session(Session::get())
 {
-    D(printf("%s:%d: %s (from buf)\n", __FILE__, __LINE__, __func__));
-
-    lt::add_torrent_params atp;
-    atp.save_path = save_path;
-    atp.flags &= ~lt::add_torrent_params::flag_auto_managed;
-    atp.flags &= ~lt::add_torrent_params::flag_paused;
-    atp.flags |= lt::add_torrent_params::flag_duplicate_is_error;
-
-    lt::error_code ec;
-
-#if LIBTORRENT_VERSION_NUM < 10200
-    atp.ti = boost::make_shared<lt::torrent_info>(md, mdsz, boost::ref(ec));
-#else
-    atp.ti = std::make_shared<lt::torrent_info>(md, mdsz, std::ref(ec));
-#endif
-    if (ec)
-        throw std::runtime_error("Failed to parse metadata");
+    D(printf("%s:%d: %s (from atp)\n", __FILE__, __LINE__, __func__));
 
     // Doesn't matter if it's duplicate since we never remove torrents
-    m_th = m_session.get()->add_torrent(atp);
+    m_th = m_session->add_torrent(atp);
     if (!m_th.is_valid())
-        throw std::runtime_error("Failed to add download by buffer");
-
-    // Need to give libtorrent some time to breethe
-    sleep(1);
-
-    download_metadata();
-}
-
-Download::Download(std::string url, std::string save_path, bool keep)
-    : m_keep(keep)
-{
-    D(printf("%s:%d: %s (from magnet)\n", __FILE__, __LINE__, __func__));
-
-    lt::add_torrent_params atp;
-    atp.save_path = save_path;
-    atp.flags &= ~lt::add_torrent_params::flag_auto_managed;
-    atp.flags &= ~lt::add_torrent_params::flag_paused;
-    atp.flags |= lt::add_torrent_params::flag_duplicate_is_error;
-    atp.url = url;
-
-    // Doesn't matter if it's duplicate since we never remove torrents
-    m_th = m_session.get()->add_torrent(atp);
-    if (!m_th.is_valid())
-        throw std::runtime_error("Failed to add download by URL");
-
-    // Need to give libtorrent some time to breethe
-    sleep(1);
+        throw std::runtime_error("Failed to add torrent");
 
     download_metadata();
 }
@@ -294,14 +254,11 @@ Download::~Download()
 
     if (m_th.is_valid()) {
         RemovePromise rmprom(m_th.info_hash());
-        AlertSubscriber<RemovePromise> sub(&m_session, &rmprom);
+        AlertSubscriber<RemovePromise> sub(m_session, &rmprom);
 
         auto f = rmprom.get_future();
 
-        if (m_keep)
-            m_session.get()->remove_torrent(m_th);
-        else
-            m_session.get()->remove_torrent(m_th, lt::session::delete_files);
+        m_session->remove_torrent(m_th, m_keep);
 
         // Wait for remove to complete
         f.wait_for(std::chrono::seconds(5));
@@ -417,10 +374,13 @@ Download::get_metadata(
         atp.ti = std::make_shared<lt::torrent_info>(path, std::ref(ec));
 #endif
         if (ec) {
-            // Download metadata
-            Download dl(url, save_path, false);
+            // The torrent_info from was is invalid
+            atp.ti = NULL;
 
-            return dl.get_metadata_and_write_to_file(path);
+            // Download metadata
+            auto dl = Download::get_download(atp, true /* keep */);
+
+            return dl->get_metadata_and_write_to_file(path);
         }
     }
 
@@ -431,6 +391,49 @@ Download::get_metadata(
         std::back_inserter(*buffer), lt::create_torrent(*atp.ti).generate());
 
     return buffer;
+}
+
+std::shared_ptr<Download>
+Download::get_download(lt::add_torrent_params& atp, bool k)
+{
+    D(printf("%s:%d: %s (from atp)\n", __FILE__, __LINE__, __func__));
+
+    lt::sha1_hash ih = atp.ti ? atp.ti->info_hash() : atp.info_hash;
+
+    static std::mutex mtx;
+    std::unique_lock<std::mutex> lock(mtx);
+
+    // Re-use Download instance if possible, else create new instance
+    static std::map<lt::sha1_hash, std::weak_ptr<Download>> dls;
+    static std::map<lt::sha1_hash, std::mutex> dls_mtx;
+    std::shared_ptr<Download> dl = dls[ih].lock();
+    if (!dl)
+        dls[ih] = dl = std::make_shared<Download>(dls_mtx[ih], atp, k);
+
+    return dl;
+}
+
+std::shared_ptr<Download>
+Download::get_download(char* md, size_t mdsz, std::string sp, bool k)
+{
+    D(printf("%s:%d: %s (from buf)\n", __FILE__, __LINE__, __func__));
+
+    lt::add_torrent_params atp;
+    atp.save_path = sp;
+    atp.flags &= ~lt::add_torrent_params::flag_auto_managed;
+    atp.flags &= ~lt::add_torrent_params::flag_paused;
+    atp.flags &= ~lt::add_torrent_params::flag_duplicate_is_error;
+
+    lt::error_code ec;
+#if LIBTORRENT_VERSION_NUM < 10200
+    atp.ti = boost::make_shared<lt::torrent_info>(md, mdsz, boost::ref(ec));
+#else
+    atp.ti = std::make_shared<lt::torrent_info>(md, mdsz, std::ref(ec));
+#endif
+    if (ec)
+        throw std::runtime_error("Failed to parse metadata");
+
+    return Download::get_download(atp, k);
 }
 
 std::pair<int, uint64_t>
@@ -503,7 +506,7 @@ Download::download_metadata()
         return;
 
     MetadataDownloadPromise dlprom(m_th.info_hash());
-    AlertSubscriber<MetadataDownloadPromise> sub(&m_session, &dlprom);
+    AlertSubscriber<MetadataDownloadPromise> sub(m_session, &dlprom);
     vlc_interrupt_guard<MetadataDownloadPromise> intrguard(dlprom);
 
     auto f = dlprom.get_future();
@@ -525,7 +528,7 @@ Download::download(lt::peer_request part)
         return;
 
     DownloadPiecePromise dlprom(m_th.info_hash(), part.piece);
-    AlertSubscriber<DownloadPiecePromise> sub(&m_session, &dlprom);
+    AlertSubscriber<DownloadPiecePromise> sub(m_session, &dlprom);
     vlc_interrupt_guard<DownloadPiecePromise> intrguard(dlprom);
 
     auto f = dlprom.get_future();
@@ -544,7 +547,7 @@ Download::read(lt::peer_request part, char* buf, size_t buflen)
     D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
     ReadPiecePromise rdprom(m_th.info_hash(), part.piece);
-    AlertSubscriber<ReadPiecePromise> sub(&m_session, &rdprom);
+    AlertSubscriber<ReadPiecePromise> sub(m_session, &rdprom);
     vlc_interrupt_guard<ReadPiecePromise> intrguard(rdprom);
 
     auto f = rdprom.get_future();

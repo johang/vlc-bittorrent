@@ -28,12 +28,12 @@ static bool abort_read = false;
 static bool abort_metadata = false;
 
 static void
-test_metadata(Download& d)
+test_metadata(std::shared_ptr<Download> d)
 {
-	auto md = d.get_metadata();
+	auto md = d->get_metadata();
 
-	std::cout << "DOWNLOADDUMMY NAME " << d.get_name() << std::endl;
-	std::cout << "DOWNLOADDUMMY INFOHASH " << d.get_infohash() << std::endl;
+	std::cout << "DOWNLOADDUMMY NAME " << d->get_name() << std::endl;
+	std::cout << "DOWNLOADDUMMY INFOHASH " << d->get_infohash() << std::endl;
 
 	for (auto& f : Download::get_files(md->data(), md->size())) {
 		std::cout << "DOWNLOADDUMMY FILE " << f.first << " " << f.second
@@ -42,9 +42,9 @@ test_metadata(Download& d)
 }
 
 static void
-test_read(Download& d)
+test_read(std::shared_ptr<Download> d)
 {
-	auto md = d.get_metadata();
+	auto md = d->get_metadata();
 
 	int i = 0;
 
@@ -53,7 +53,7 @@ test_read(Download& d)
 
 		while (1) {
 			char buf[64*1024];
-			ssize_t r = d.read(i, total, buf, sizeof (buf));
+			ssize_t r = d->read(i, total, buf, sizeof (buf));
 			if (r <= 0)
 				break;
 
@@ -90,7 +90,7 @@ main(int argc, char *argv[])
 	try {
 		auto md = Download::get_metadata(argv[1], ".", "/tmp");
 
-		Download d(md->data(), md->size(), ".", true);
+		auto d = Download::get_download(md->data(), md->size(), ".", true);
 
 		if (show_metadata) {
 			test_metadata(d);

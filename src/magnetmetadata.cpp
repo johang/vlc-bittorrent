@@ -27,7 +27,7 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 
 #define D(x)
 
-struct access_sys_t {
+struct magnetmetadata_sys {
     std::shared_ptr<std::vector<char>> p_metadata;
 
     // Current position within the metadata
@@ -42,7 +42,7 @@ MagnetMetadataRead(stream_t* p_access, void* p_buffer, size_t i_len)
     if (!p_access->p_sys)
         return -1;
 
-    access_sys_t* p_sys = (access_sys_t*) p_access->p_sys;
+    magnetmetadata_sys* p_sys = (magnetmetadata_sys*) p_access->p_sys;
 
     if (!p_sys->p_metadata)
         return -1;
@@ -114,9 +114,11 @@ MagnetMetadataOpen(vlc_object_t* p_this)
         return VLC_EGENERIC;
     }
 
-    auto p_sys = std::make_unique<access_sys_t>();
+    auto p_sys = std::make_unique<magnetmetadata_sys>();
 
     try {
+        msg_Info(p_access, "Reading metadata");
+
         p_sys->p_metadata = Download::get_metadata(magnet,
             get_download_directory(p_this), get_cache_directory(p_this));
 
@@ -143,7 +145,7 @@ MagnetMetadataClose(vlc_object_t* p_this)
     if (!p_access->p_sys)
         return;
 
-    access_sys_t* p_sys = (access_sys_t*) p_access->p_sys;
+    magnetmetadata_sys* p_sys = (magnetmetadata_sys*) p_access->p_sys;
 
     delete p_sys;
 }

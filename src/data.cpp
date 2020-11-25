@@ -31,8 +31,8 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 
 #define D(x)
 
-struct access_sys_t {
-    std::unique_ptr<Download> p_download;
+struct data_sys {
+    std::shared_ptr<Download> p_download;
 
     // Current open file
     int i_file;
@@ -46,7 +46,7 @@ DataRead(stream_extractor_t* p_extractor, void* p_data, size_t i_size)
 {
     D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-    access_sys_t* p_sys = (access_sys_t*) p_extractor->p_sys;
+    data_sys* p_sys = (data_sys*) p_extractor->p_sys;
     if (!p_sys)
         return -1;
     else if (!p_sys->p_download)
@@ -76,7 +76,7 @@ DataSeek(stream_extractor_t* p_extractor, uint64_t i_pos)
     if (!p_extractor)
         return VLC_EGENERIC;
 
-    access_sys_t* p_sys = (access_sys_t*) p_extractor->p_sys;
+    data_sys* p_sys = (data_sys*) p_extractor->p_sys;
     if (!p_sys)
         return VLC_EGENERIC;
 
@@ -93,7 +93,7 @@ DataControl(stream_extractor_t* p_extractor, int i_query, va_list args)
     if (!p_extractor)
         return VLC_EGENERIC;
 
-    access_sys_t* p_sys = (access_sys_t*) p_extractor->p_sys;
+    data_sys* p_sys = (data_sys*) p_extractor->p_sys;
     if (!p_sys)
         return VLC_EGENERIC;
     else if (!p_sys->p_download)
@@ -147,10 +147,10 @@ DataOpen(vlc_object_t* p_obj)
     if (mdsz < 0)
         return VLC_EGENERIC;
 
-    auto p_sys = std::make_unique<access_sys_t>();
+    auto p_sys = std::make_unique<data_sys>();
 
     try {
-        p_sys->p_download = std::make_unique<Download>(md.get(), (size_t) mdsz,
+        p_sys->p_download = Download::get_download(md.get(), (size_t) mdsz,
             get_download_directory(p_obj), get_keep_files(p_obj));
 
         msg_Dbg(p_extractor, "Added download");
@@ -183,7 +183,7 @@ DataClose(vlc_object_t* p_obj)
     if (!p_extractor->p_sys)
         return;
 
-    access_sys_t* p_sys = (access_sys_t*) p_extractor->p_sys;
+    data_sys* p_sys = (data_sys*) p_extractor->p_sys;
 
     delete p_sys;
 }

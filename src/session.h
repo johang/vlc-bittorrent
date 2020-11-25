@@ -21,6 +21,7 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #define VLC_BITTORRENT_LIBTORRENT_H
 
 #include <forward_list>
+#include <memory>
 #include <mutex>
 #include <thread>
 
@@ -41,7 +42,7 @@ struct Alert_Listener {
 
 class Session {
 public:
-    Session();
+    Session(std::mutex& mtx);
     ~Session();
 
     void
@@ -50,13 +51,19 @@ public:
     void
     unregister_alert_listener(Alert_Listener* al);
 
-    std::unique_ptr<lt::session>&
-    get()
-    {
-        return m_session;
-    }
+    lt::torrent_handle
+    add_torrent(lt::add_torrent_params& atp);
+
+    void
+    remove_torrent(lt::torrent_handle& th, bool k);
+
+    static std::shared_ptr<Session>
+    get();
 
 private:
+    // Locks mutex passed to constructor
+    std::unique_lock<std::mutex> m_lock;
+
     std::unique_ptr<lt::session> m_session;
 
     std::thread m_session_thread;
