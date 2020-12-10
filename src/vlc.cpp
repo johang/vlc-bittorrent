@@ -34,9 +34,11 @@ get_download_directory(vlc_object_t* p_this)
 {
     std::string dldir;
 
-    std::unique_ptr<char> dir(var_InheritString(p_this, DLDIR_CONFIG));
+    std::unique_ptr<char, decltype(&free)> dir(
+        var_InheritString(p_this, DLDIR_CONFIG), free);
     if (!dir) {
-        std::unique_ptr<char> dir(config_GetUserDir(VLC_DOWNLOAD_DIR));
+        std::unique_ptr<char, decltype(&free)> dir(
+            config_GetUserDir(VLC_DOWNLOAD_DIR), free);
         if (!dir)
             throw std::runtime_error("Failed to find download directory");
 
@@ -68,7 +70,8 @@ get_cache_directory(vlc_object_t* p_this)
 {
     std::string cachedir;
 
-    std::unique_ptr<char> dir(config_GetUserDir(VLC_CACHE_DIR));
+    std::unique_ptr<char, decltype(&free)> dir(
+        config_GetUserDir(VLC_CACHE_DIR), free);
     if (!dir)
         throw std::runtime_error("Failed to find cache directory");
 

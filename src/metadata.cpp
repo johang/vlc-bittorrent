@@ -54,8 +54,8 @@ MetadataReadDir(stream_directory_t* p_directory, input_item_node_t* p_node)
     vlc_readdir_helper_init(&rdh, p_directory, p_node);
 
     for (auto f : files) {
-        std::unique_ptr<char> mrl(
-            vlc_stream_extractor_CreateMRL(p_directory, f.first.c_str()));
+        std::unique_ptr<char, decltype(&free)> mrl(
+            vlc_stream_extractor_CreateMRL(p_directory, f.first.c_str()), free);
         if (!mrl)
             continue;
 
