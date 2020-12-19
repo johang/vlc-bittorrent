@@ -26,6 +26,7 @@ XXX: This file is basically just glue code so vlc can make interruptible
 #include "config.h"
 #endif
 
+#include <chrono>
 #include <fstream>
 #include <future>
 #include <memory>
@@ -244,6 +245,9 @@ Download::Download(std::mutex& mtx, lt::add_torrent_params& atp, bool k)
     m_th = m_session->add_torrent(atp);
     if (!m_th.is_valid())
         throw std::runtime_error("Failed to add torrent");
+
+    // Need to give libtorrent some time to breethe
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     download_metadata();
 }
