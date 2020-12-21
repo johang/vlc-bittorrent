@@ -1,0 +1,9 @@
+---
+Language: Cpp
+BasedOnStyle: WebKit
+ColumnLimit: 80
+AlignEscapedNewlines: DontAlign
+AllowShortFunctionsOnASingleLine: Empty
+AlwaysBreakAfterReturnType: All
+SpaceAfterCStyleCast: true
+---
