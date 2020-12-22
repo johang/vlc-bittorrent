@@ -98,6 +98,9 @@ private:
     ssize_t
     read(lt::peer_request part, char* buf, size_t buflen);
 
+    void
+    set_piece_priority(int file, int64_t off, int size, int prio);
+
     // Locks mutex passed to constructor
     std::unique_lock<std::mutex> m_lock;
 

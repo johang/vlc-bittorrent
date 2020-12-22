@@ -29,6 +29,7 @@ XXX: This file is basically just glue code so vlc can make interruptible
 #include <chrono>
 #include <fstream>
 #include <future>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
@@ -56,7 +57,12 @@ XXX: This file is basically just glue code so vlc can make interruptible
 #define D(x)
 #define DD(x)
 
-#define MB (1024 * 1024)
+#define kB (1024)
+#define MB (1024 * kB)
+
+#define PRIO_HIGHEST 7
+#define PRIO_HIGHER 6
+#define PRIO_HIGH 5
 
 namespace lt = libtorrent;
 
@@ -285,34 +291,58 @@ Download::read(int file, int64_t fileoff, char* buf, size_t buflen)
     if (fileoff < 0)
         throw std::runtime_error("File offset negative");
 
-    auto filesz = fs.file_size(file);
+    int64_t filesz = fs.file_size(file);
     if (fileoff >= filesz)
         return 0;
 
     // Figure out what to read
-    lt::peer_request part = m_th.torrent_file()->map_file(file, fileoff,
-        std::max(
-            0, std::min((int) buflen, (int) (fs.file_size(file) - fileoff))));
+    auto part = ti->map_file(file, fileoff,
+        (int) std::min({ (int64_t) std::numeric_limits<int>::max(),
+            (int64_t) buflen, filesz - fileoff }));
     if (part.length <= 0)
         return 0;
 
-    int p = part.piece;
-    int64_t o = fileoff - part.start;
+    // Set highest priority to the requested range
+    set_piece_priority(file, fileoff, part.length, PRIO_HIGHEST);
 
-    // Update piece priorities
-    for (; o < std::min(filesz, fileoff + 128 * MB); o += ti->piece_size(p++)) {
-        if (!m_th.have_piece(p)) {
-            if (o < fileoff + 16 * MB && m_th.piece_priority(p) < 7)
-                m_th.piece_priority(p, 7);
-            else if (o < fileoff + 128 * MB && m_th.piece_priority(p) < 2)
-                m_th.piece_priority(p, 2);
-        }
-    }
+    // Set second highest priority to the first and last 0.1% or 64 kB
+    int64_t p01 = std::max(
+        std::min((int64_t) std::numeric_limits<int>::max(), filesz / 1000),
+        (int64_t) 128 * kB);
+    set_piece_priority(file, 0, (int) p01, PRIO_HIGHER);
+    set_piece_priority(file, filesz - p01, (int) p01, PRIO_HIGHER);
+
+    // Set third highest priority to the next 5% or 64 MB
+    int64_t p5 = std::max(
+        std::min((int64_t) std::numeric_limits<int>::max(), 5 * filesz / 100),
+        (int64_t) 32 * MB);
+    set_piece_priority(file, fileoff, (int) p5, PRIO_HIGH);
 
     if (!m_th.have_piece(part.piece))
         download(part);
 
     return read(part, buf, buflen);
+}
+
+void
+Download::set_piece_priority(int file, int64_t off, int size, int prio)
+{
+    auto ti = m_th.torrent_file();
+
+    auto fs = ti->files();
+
+    // Make sure off + size <= file size
+    int64_t filesz = fs.file_size(file);
+    off = std::min(off, filesz);
+    size = (int) std::min({ (int64_t) std::numeric_limits<int>::max(),
+        (int64_t) size, filesz - off });
+
+    auto part = ti->map_file(file, off, size);
+    for (; part.length > 0; part.length -= ti->piece_size(part.piece++)) {
+        if (!m_th.have_piece(part.piece)
+            && m_th.piece_priority(part.piece) < prio)
+            m_th.piece_priority(part.piece, prio);
+    }
 }
 
 std::vector<std::pair<std::string, uint64_t>>
