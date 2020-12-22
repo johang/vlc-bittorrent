@@ -137,8 +137,7 @@ DataOpen(vlc_object_t* p_obj)
 
     stream_extractor_t* p_extractor = (stream_extractor_t*) p_obj;
 
-    msg_Dbg(p_extractor, "Opening %s in %s", p_extractor->identifier,
-        p_extractor->source->psz_url);
+    msg_Info(p_extractor, "Opening %s", p_extractor->identifier);
 
     // Temporary buffer to hold metadata
     auto md = std::make_unique<char[]>(0x100000);
