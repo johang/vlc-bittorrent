@@ -10,6 +10,7 @@ env:
   - IMAGE=debian:stable DOCKERFILE=debian
   - IMAGE=debian:testing DOCKERFILE=debian
   - IMAGE=debian:unstable DOCKERFILE=debian
+  - IMAGE=debian:experimental DOCKERFILE=debian
   - IMAGE=opensuse/leap:latest DOCKERFILE=opensuse
   - IMAGE=opensuse/tumbleweed:latest DOCKERFILE=opensuse
 jobs:
