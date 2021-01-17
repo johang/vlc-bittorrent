@@ -30,80 +30,80 @@ static bool abort_metadata = false;
 static void
 test_metadata(std::shared_ptr<Download> d)
 {
-	auto md = d->get_metadata();
+    auto md = d->get_metadata();
 
-	std::cout << "DOWNLOADDUMMY NAME " << d->get_name() << std::endl;
-	std::cout << "DOWNLOADDUMMY INFOHASH " << d->get_infohash() << std::endl;
+    std::cout << "DOWNLOADDUMMY NAME " << d->get_name() << std::endl;
+    std::cout << "DOWNLOADDUMMY INFOHASH " << d->get_infohash() << std::endl;
 
-	for (auto& f : Download::get_files(md->data(), md->size())) {
-		std::cout << "DOWNLOADDUMMY FILE " << f.first << " " << f.second
-			<< std::endl;
-	}
+    for (auto& f : Download::get_files(md->data(), md->size())) {
+        std::cout << "DOWNLOADDUMMY FILE " << f.first << " " << f.second
+                  << std::endl;
+    }
 }
 
 static void
 test_read(std::shared_ptr<Download> d)
 {
-	auto md = d->get_metadata();
+    auto md = d->get_metadata();
 
-	int i = 0;
+    int i = 0;
 
-	for (auto& f : Download::get_files(md->data(), md->size())) {
-		int64_t total = 0;
+    for (auto& f : Download::get_files(md->data(), md->size())) {
+        int64_t total = 0;
 
-		while (1) {
-			char buf[64*1024];
-			ssize_t r = d->read(i, total, buf, sizeof (buf));
-			if (r <= 0)
-				break;
+        while (1) {
+            char buf[64 * 1024];
+            ssize_t r = d->read(i, total, buf, sizeof(buf));
+            if (r <= 0)
+                break;
 
-			total += r;
-		}
+            total += r;
+        }
 
-		std::cout << "DOWNLOADDUMMY READ " << total << " " << i << std::endl;
+        std::cout << "DOWNLOADDUMMY READ " << total << " " << i << std::endl;
 
-		// File index
-		i++;
-	}
+        // File index
+        i++;
+    }
 }
 
 int
-main(int argc, char *argv[])
+main(int argc, char* argv[])
 {
-	for (int i = 0; i < argc; i++) {
-		std::string arg = argv[i];
+    for (int i = 0; i < argc; i++) {
+        std::string arg = argv[i];
 
-		if (arg == "--show-metadata") {
-			show_metadata = true;
-		} else if (arg == "--show-read") {
-			show_read = true;
-		} else if (arg == "--abort-metadata") {
-			abort_metadata = true;
-		} else if (arg == "--abort-read") {
-			abort_read = true;
-		}
-	}
+        if (arg == "--show-metadata") {
+            show_metadata = true;
+        } else if (arg == "--show-read") {
+            show_read = true;
+        } else if (arg == "--abort-metadata") {
+            abort_metadata = true;
+        } else if (arg == "--abort-read") {
+            abort_read = true;
+        }
+    }
 
-	if (argc <= 1)
-		return -1;
+    if (argc <= 1)
+        return -1;
 
-	try {
-		auto md = Download::get_metadata(argv[1], ".", "/tmp");
+    try {
+        auto md = Download::get_metadata(argv[1], ".", "/tmp");
 
-		auto d = Download::get_download(md->data(), md->size(), ".", true);
+        auto d = Download::get_download(md->data(), md->size(), ".", true);
 
-		if (show_metadata) {
-			test_metadata(d);
-		}
+        if (show_metadata) {
+            test_metadata(d);
+        }
 
-		if (show_read) {
-			test_read(d);
-		}
-	} catch (std::runtime_error& e) {
-		std::cout << "DOWNLOADDUMMY FAIL " << e.what() << std::endl;
-	}
+        if (show_read) {
+            test_read(d);
+        }
+    } catch (std::runtime_error& e) {
+        std::cout << "DOWNLOADDUMMY FAIL " << e.what() << std::endl;
+    }
 
-	std::cout << "DOWNLOADDUMMY END" << std::endl;
+    std::cout << "DOWNLOADDUMMY END" << std::endl;
 
-	return 0;
+    return 0;
 }
