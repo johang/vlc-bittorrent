@@ -39,6 +39,9 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace lt = libtorrent;
 
+using MetadataProgressCb = std::function<void(float)>;
+using DataProgressCb = std::function<void(float)>;
+
 class Download {
 
 public:
@@ -58,7 +61,14 @@ public:
      * available, it will download it and wait for it to become available.
      */
     ssize_t
-    read(int file, int64_t off, char* buf, size_t buflen);
+    read(int file, int64_t off, char* buf, size_t buflen,
+        DataProgressCb progress_cb);
+
+    ssize_t
+    read(int file, int64_t off, char* buf, size_t buflen)
+    {
+        return read(file, off, buf, buflen, nullptr);
+    }
 
     static std::vector<std::pair<std::string, uint64_t>>
     get_files(char* metadata, size_t metadatalen);
@@ -67,14 +77,23 @@ public:
     get_files();
 
     static std::shared_ptr<std::vector<char>>
-    get_metadata(
-        std::string url, std::string save_path, std::string cache_path);
+    get_metadata(std::string url, std::string save_path, std::string cache_path,
+        MetadataProgressCb progress_cb);
+
+    static std::shared_ptr<std::vector<char>>
+    get_metadata(std::string url, std::string save_path, std::string cache_path)
+    {
+        return get_metadata(url, save_path, cache_path, nullptr);
+    }
 
     std::shared_ptr<std::vector<char>>
-    get_metadata();
+    get_metadata(MetadataProgressCb progress_cb);
 
     std::shared_ptr<std::vector<char>>
-    get_metadata_and_write_to_file(std::string path);
+    get_metadata()
+    {
+        return get_metadata(nullptr);
+    }
 
     std::pair<int, uint64_t>
     get_file(std::string path);
@@ -90,10 +109,22 @@ private:
     get_download(lt::add_torrent_params& atp, bool k);
 
     void
-    download_metadata();
+    download_metadata(MetadataProgressCb cb);
 
     void
-    download(lt::peer_request part);
+    download_metadata()
+    {
+        download_metadata(nullptr);
+    }
+
+    void
+    download(lt::peer_request part, DataProgressCb cb);
+
+    void
+    download(lt::peer_request part)
+    {
+        download(part, nullptr);
+    }
 
     ssize_t
     read(lt::peer_request part, char* buf, size_t buflen);

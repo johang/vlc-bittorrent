@@ -254,8 +254,6 @@ Download::Download(std::mutex& mtx, lt::add_torrent_params& atp, bool k)
 
     // Need to give libtorrent some time to breethe
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-    download_metadata();
 }
 
 Download::~Download()
@@ -276,10 +274,13 @@ Download::~Download()
 }
 
 ssize_t
-Download::read(int file, int64_t fileoff, char* buf, size_t buflen)
+Download::read(int file, int64_t fileoff, char* buf, size_t buflen,
+    DataProgressCb progress_cb)
 {
     D(printf("%s:%d: %s(%d, %lu, %p, %lu)\n", __FILE__, __LINE__, __func__,
         file, fileoff, buf, buflen));
+
+    download_metadata();
 
     auto ti = m_th.torrent_file();
 
@@ -319,7 +320,7 @@ Download::read(int file, int64_t fileoff, char* buf, size_t buflen)
     set_piece_priority(file, fileoff, (int) p5, PRIO_HIGH);
 
     if (!m_th.have_piece(part.piece))
-        download(part);
+        download(part, progress_cb);
 
     return read(part, buf, buflen);
 }
@@ -327,6 +328,10 @@ Download::read(int file, int64_t fileoff, char* buf, size_t buflen)
 void
 Download::set_piece_priority(int file, int64_t off, int size, int prio)
 {
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+    download_metadata();
+
     auto ti = m_th.torrent_file();
 
     auto fs = ti->files();
@@ -348,6 +353,10 @@ Download::set_piece_priority(int file, int64_t off, int size, int prio)
 std::vector<std::pair<std::string, uint64_t>>
 Download::get_files()
 {
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+    download_metadata();
+
     std::vector<std::pair<std::string, uint64_t>> files;
 
     const lt::file_storage& fs = m_th.torrent_file()->files();
@@ -358,9 +367,12 @@ Download::get_files()
     return files;
 }
 
+// static
 std::vector<std::pair<std::string, uint64_t>>
 Download::get_files(char* metadata, size_t metadatasz)
 {
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
     lt::error_code ec;
 
     lt::torrent_info ti(metadata, (int) metadatasz, ec);
@@ -377,10 +389,13 @@ Download::get_files(char* metadata, size_t metadatasz)
     return files;
 }
 
+// static
 std::shared_ptr<std::vector<char>>
-Download::get_metadata(
-    std::string url, std::string save_path, std::string cache_path)
+Download::get_metadata(std::string url, std::string save_path,
+    std::string cache_path, MetadataProgressCb cb)
 {
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
     lt::add_torrent_params atp;
     atp.save_path = save_path;
     atp.flags &= ~lt::add_torrent_params::flag_auto_managed;
@@ -411,22 +426,34 @@ Download::get_metadata(
             // The torrent_info from was is invalid
             atp.ti = NULL;
 
-            // Download metadata
-            auto dl = Download::get_download(atp, true /* keep */);
+            // Dowload metadata
+            auto metadata = Download::get_download(atp, true)->get_metadata(cb);
 
-            return dl->get_metadata_and_write_to_file(path);
+            // Write metadata to cache
+            std::ofstream os(path, std::ios::binary);
+            std::ostream_iterator<char> osi(os);
+            std::copy(std::begin(*metadata), std::end(*metadata), osi);
+
+            return metadata;
         }
     }
 
-    auto buffer = std::make_shared<std::vector<char>>();
+    // Add trackers from magnet URL to the cached metadata
+    for (auto& tracker : atp.trackers) {
+        atp.ti->add_tracker(tracker);
+    }
 
-    // Bencode metadata into buffer
-    lt::bencode(
-        std::back_inserter(*buffer), lt::create_torrent(*atp.ti).generate());
+    auto entry = lt::create_torrent(*atp.ti).generate();
 
-    return buffer;
+    auto metadata = std::make_shared<std::vector<char>>();
+
+    // Bencode metadata into vector
+    lt::bencode(std::back_inserter(*metadata), entry);
+
+    return metadata;
 }
 
+// static
 std::shared_ptr<Download>
 Download::get_download(lt::add_torrent_params& atp, bool k)
 {
@@ -447,6 +474,7 @@ Download::get_download(lt::add_torrent_params& atp, bool k)
     return dl;
 }
 
+// static
 std::shared_ptr<Download>
 Download::get_download(char* md, size_t mdsz, std::string sp, bool k)
 {
@@ -473,6 +501,10 @@ Download::get_download(char* md, size_t mdsz, std::string sp, bool k)
 std::pair<int, uint64_t>
 Download::get_file(std::string path)
 {
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+    download_metadata();
+
     const lt::file_storage& fs = m_th.torrent_file()->files();
     for (int i = 0; i < fs.num_files(); i++) {
         if (fs.file_path(i) == path)
@@ -485,43 +517,31 @@ Download::get_file(std::string path)
 std::string
 Download::get_name()
 {
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+    download_metadata();
+
     return m_th.torrent_file()->name();
 }
 
 std::string
 Download::get_infohash()
 {
+    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+    download_metadata();
+
     return lt::to_hex(m_th.torrent_file()->info_hash().to_string());
 }
 
 std::shared_ptr<std::vector<char>>
-Download::get_metadata()
+Download::get_metadata(MetadataProgressCb cb)
 {
     D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-    auto entry = lt::create_torrent(*m_th.torrent_file()).generate();
-
-    auto buffer = std::make_shared<std::vector<char>>();
-
-    // Bencode metadata into vector
-    lt::bencode(std::back_inserter(*buffer), entry);
-
-    return buffer;
-}
-
-std::shared_ptr<std::vector<char>>
-Download::get_metadata_and_write_to_file(std::string path)
-{
-    D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+    download_metadata(cb);
 
     auto entry = lt::create_torrent(*m_th.torrent_file()).generate();
-
-    std::filebuf fb;
-    fb.open(path, std::ios::out | std::ios::binary);
-    std::ostream os(&fb);
-
-    // Bencode metadata into file
-    lt::bencode(std::ostream_iterator<char>(os), entry);
 
     auto buffer = std::make_shared<std::vector<char>>();
 
@@ -532,7 +552,7 @@ Download::get_metadata_and_write_to_file(std::string path)
 }
 
 void
-Download::download_metadata()
+Download::download_metadata(MetadataProgressCb cb)
 {
     D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
@@ -545,18 +565,28 @@ Download::download_metadata()
 
     auto f = dlprom.get_future();
 
+    if (cb)
+        cb(0.0);
+
     // Wait for metadata to download
     while (!m_th.status().has_metadata) {
         auto r = f.wait_for(std::chrono::seconds(1));
         if (r == std::future_status::ready)
-            return f.get();
+            break;
     }
+
+    if (cb)
+        cb(100.0);
+
+    return f.get();
 }
 
 void
-Download::download(lt::peer_request part)
+Download::download(lt::peer_request part, DataProgressCb cb)
 {
     D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+    download_metadata();
 
     if (m_th.have_piece(part.piece))
         return;
@@ -567,18 +597,28 @@ Download::download(lt::peer_request part)
 
     auto f = dlprom.get_future();
 
+    if (cb)
+        cb(0.0);
+
     // Wait for download
     while (!m_th.have_piece(part.piece)) {
         auto r = f.wait_for(std::chrono::seconds(1));
         if (r == std::future_status::ready)
-            return f.get();
+            break;
     }
+
+    if (cb)
+        cb(100.0);
+
+    return f.get();
 }
 
 ssize_t
 Download::read(lt::peer_request part, char* buf, size_t buflen)
 {
     D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
+
+    download_metadata();
 
     ReadPiecePromise rdprom(m_th.info_hash(), part.piece);
     AlertSubscriber<ReadPiecePromise> sub(m_session, &rdprom);
