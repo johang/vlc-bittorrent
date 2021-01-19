@@ -33,7 +33,7 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #include <vlc/libvlc_media_list.h>
 #include <vlc/libvlc_media_player.h>
 #include <vlc/libvlc_media_list_player.h>
-// clang-format off
+// clang-format on
 
 static bool play_item = false;
 static bool play_subitems = false;
@@ -91,8 +91,9 @@ media_subitemadded(libvlc_media_t* parent, libvlc_media_t* media)
             type = "FILE";
         }
 
-        printf("VLCDUMMY SUBITEM %s (%s)\n",
-            libvlc_media_get_meta(media, libvlc_meta_Title), type);
+        char* meta = libvlc_media_get_meta(media, libvlc_meta_Title);
+        printf("VLCDUMMY SUBITEM %s (%s)\n", meta, type);
+        libvlc_free(meta);
     }
 }
 
@@ -128,14 +129,14 @@ media_statechanged(libvlc_media_t* media, libvlc_state_t new_state)
 
     libvlc_media_stats_t stat;
 
+    char* title = libvlc_media_get_meta(media, libvlc_meta_Title);
     if (new_state == libvlc_Ended && libvlc_media_get_stats(media, &stat))
         printf("VLCDUMMY STATE %s %s (%s audio frames, %s video frames)\n",
-            libvlc_media_get_meta(media, libvlc_meta_Title), state,
-            stat.i_decoded_audio > 0 ? ">0" : "0",
+            title, state, stat.i_decoded_audio > 0 ? ">0" : "0",
             stat.i_decoded_video > 0 ? ">0" : "0");
     else
-        printf("VLCDUMMY STATE %s %s\n",
-            libvlc_media_get_meta(media, libvlc_meta_Title), state);
+        printf("VLCDUMMY STATE %s %s\n", title, state);
+    libvlc_free(title);
 }
 
 static void
@@ -232,8 +233,6 @@ play_media_list(libvlc_instance_t* vlc, libvlc_media_list_t* ml)
         pthread_cond_wait(&state_change_cond, &state_change_mutex);
     }
 
-    libvlc_media_list_release(ml);
-
     libvlc_media_list_player_release(mlp);
 }
 
@@ -275,7 +274,10 @@ play_media(libvlc_instance_t* vlc, libvlc_media_t* md)
     libvlc_media_player_release(mi);
 
     if (play_subitems) {
-        play_media_list(vlc, libvlc_media_subitems(md));
+        /* Play each item in the torrent */
+        libvlc_media_list_t* ml = libvlc_media_subitems(md);
+        play_media_list(vlc, ml);
+        libvlc_media_list_release(ml);
     }
 }
 
@@ -305,8 +307,9 @@ main(int argc, char** argv)
     assert(md != NULL);
 
     if (print_item) {
-        printf(
-            "VLCDUMMY ITEM %s\n", libvlc_media_get_meta(md, libvlc_meta_Title));
+        char* title = libvlc_media_get_meta(md, libvlc_meta_Title);
+        printf("VLCDUMMY ITEM %s\n", title);
+        libvlc_free(title);
     }
 
     if (play_item) {
