@@ -15,9 +15,10 @@ env:
   - IMAGE=opensuse/tumbleweed:latest DOCKERFILE=opensuse
 jobs:
   allow_failures:
-    - env: IMAGE=debian:stable DOCKERFILE=debian
+    - env: IMAGE=ubuntu:devel DOCKERFILE=debian
     - env: IMAGE=debian:testing DOCKERFILE=debian
     - env: IMAGE=debian:unstable DOCKERFILE=debian
+    - env: IMAGE=debian:experimental DOCKERFILE=debian
     - env: IMAGE=opensuse/leap:latest DOCKERFILE=opensuse
     - env: IMAGE=opensuse/tumbleweed:latest DOCKERFILE=opensuse
 before_install:
