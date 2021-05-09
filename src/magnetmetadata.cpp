@@ -119,8 +119,22 @@ MagnetMetadataOpen(vlc_object_t* p_this)
     try {
         msg_Info(p_access, "Reading metadata");
 
+        auto del = [&](vlc_dialog_id* dialog) {
+            vlc_dialog_release(p_this, dialog);
+        };
+        std::unique_ptr<vlc_dialog_id, decltype(del)> dialog(nullptr, del);
+
+        auto prog = [&](float progress) {
+            if (!dialog)
+                dialog.reset(vlc_dialog_display_progress(p_this, true, progress,
+                    NULL, "Downloading metadata",
+                    "Downloading metadata from peers..."));
+            else
+                vlc_dialog_update_progress_text(p_this, dialog.get(), progress,
+                    "Downloading metadata from peers...");
+        };
         p_sys->p_metadata = Download::get_metadata(magnet,
-            get_download_directory(p_this), get_cache_directory(p_this));
+            get_download_directory(p_this), get_cache_directory(p_this), prog);
 
         msg_Dbg(p_access, "Got %zu bytes metadata", p_sys->p_metadata->size());
     } catch (std::runtime_error& e) {
