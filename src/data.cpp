@@ -179,10 +179,7 @@ DataClose(vlc_object_t* p_obj)
 
     stream_extractor_t* p_extractor = (stream_extractor_t*) p_obj;
 
-    if (!p_extractor->p_sys)
-        return;
-
     data_sys* p_sys = (data_sys*) p_extractor->p_sys;
 
-    delete p_sys;
+    std::unique_ptr<data_sys> sys(p_sys);
 }

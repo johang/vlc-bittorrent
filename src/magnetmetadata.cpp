@@ -156,10 +156,7 @@ MagnetMetadataClose(vlc_object_t* p_this)
 
     stream_t* p_access = (stream_t*) p_this;
 
-    if (!p_access->p_sys)
-        return;
-
     magnetmetadata_sys* p_sys = (magnetmetadata_sys*) p_access->p_sys;
 
-    delete p_sys;
+    std::unique_ptr<magnetmetadata_sys> sys(p_sys);
 }
