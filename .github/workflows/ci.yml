@@ -1,0 +1,46 @@
+name: vlc-bittorrent CI
+
+on:
+  push:
+    branches: '*'
+
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    name: "Ubuntu (${{ matrix.image }})"
+
+    strategy:
+      matrix:
+        image:
+          - 'ubuntu:latest'
+          - 'ubuntu:rolling'
+          - 'ubuntu:devel'
+
+    container:
+      image: ${{ matrix.image }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Install dependencies
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: >
+        apt-fast update &&
+        apt-fast -y install autoconf
+                            autoconf-archive
+                            automake
+                            build-essential
+                            libtool
+                            libtorrent-rasterbar-dev
+                            libvlccore-dev
+                            libvlc-dev
+                            vlc
+    - name: Build
+      run: >
+        autoreconf -i &&
+        ./configure --with-tests &&
+        make
+    - name: Test
+      run: >
+        make check
