@@ -9,7 +9,8 @@ COOLCFLAGS = \
 	-Wsign-compare \
 	-Wsign-conversion \
 	-Wno-unused-parameter \
-	-Wno-unused
+	-Wno-unused \
+	-Wodr
 
 libaccess_bittorrent_plugin_la_SOURCES = \
 	module.cpp \
