@@ -26,8 +26,8 @@ jobs:
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
-        apt-fast update
-        apt-fast -y install autoconf autoconf-archive automake build-essential libtool libtorrent-rasterbar-dev libvlccore-dev libvlc-dev vlc
+        apt-get update
+        apt-get -y install autoconf autoconf-archive automake build-essential libtool libtorrent-rasterbar-dev libvlccore-dev libvlc-dev vlc
     - name: Build
       run: |
         autoreconf -i
