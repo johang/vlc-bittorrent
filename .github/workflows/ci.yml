@@ -39,4 +39,4 @@ jobs:
         make
     - name: Test
       run: |
-        make check
+        make check || (cat test/*.log && false)
