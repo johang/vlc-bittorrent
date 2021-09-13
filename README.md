@@ -17,6 +17,10 @@ With vlc-bittorrent, you can open a **.torrent** file or **magnet link** with VL
 
     $ sudo apt-get install vlc-plugin-bittorrent
 
+## Installing on Fedora
+
+    $ sudo dnf install vlc-bittorrent
+
 ## FAQ
 
 ### Does it upload/share/seed while playing?
