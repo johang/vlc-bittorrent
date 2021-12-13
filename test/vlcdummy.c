@@ -61,6 +61,9 @@ static const char* args[] = {
     "--bittorrent-keep-files",
     "--image-duration",
     "1",
+    "--file-logging",
+    "--logfile", "vlcdummy-vlc.log",
+    "--log-verbose", "3",
 };
 
 static void

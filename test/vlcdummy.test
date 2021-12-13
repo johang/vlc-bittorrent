@@ -30,7 +30,7 @@ run_test() {
 	pushd data
 	cp -n *.torrent $HOME/.cache/vlc
 	(timeout 60 ../vlcdummy "$3" $2 || :) 2>/dev/null |
-	grep VLCDUMMY |
+	grep ^VLCDUMMY |
 	diff -U 10 "$4" - |
 	sed -e "s/^/# /" &&
 	echo "ok # $1 $3" ||
