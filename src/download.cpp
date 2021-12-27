@@ -577,8 +577,6 @@ Download::download_metadata(MetadataProgressCb cb)
 
     if (cb)
         cb(100.0);
-
-    return f.get();
 }
 
 void
@@ -609,8 +607,6 @@ Download::download(lt::peer_request part, DataProgressCb cb)
 
     if (cb)
         cb(100.0);
-
-    return f.get();
 }
 
 ssize_t
