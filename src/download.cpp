@@ -572,7 +572,7 @@ Download::download_metadata(MetadataProgressCb cb)
     while (!m_th.status().has_metadata) {
         auto r = f.wait_for(std::chrono::seconds(1));
         if (r == std::future_status::ready)
-            break;
+            f.get();
     }
 
     if (cb)
@@ -602,7 +602,7 @@ Download::download(lt::peer_request part, DataProgressCb cb)
     while (!m_th.have_piece(part.piece)) {
         auto r = f.wait_for(std::chrono::seconds(1));
         if (r == std::future_status::ready)
-            break;
+            f.get();
     }
 
     if (cb)
