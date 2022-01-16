@@ -124,14 +124,10 @@ public:
     void
     handle_alert(lt::alert* a) override
     {
-        if (lt::alert_cast<lt::torrent_alert>(a)) {
-            auto* x = lt::alert_cast<lt::torrent_alert>(a);
+        if (auto* x = lt::alert_cast<lt::read_piece_alert>(a)) {
             if (x->handle.info_hash() != m_ih)
                 return;
-        }
 
-        if (lt::alert_cast<lt::read_piece_alert>(a)) {
-            auto* x = lt::alert_cast<lt::read_piece_alert>(a);
             if (x->piece != m_piece)
                 return;
 
@@ -161,14 +157,10 @@ public:
     void
     handle_alert(lt::alert* a) override
     {
-        if (lt::alert_cast<lt::torrent_alert>(a)) {
-            auto* x = lt::alert_cast<lt::torrent_alert>(a);
+        if (auto* x = lt::alert_cast<lt::piece_finished_alert>(a)) {
             if (x->handle.info_hash() != m_ih)
                 return;
-        }
 
-        if (lt::alert_cast<lt::piece_finished_alert>(a)) {
-            auto* x = lt::alert_cast<lt::piece_finished_alert>(a);
             if (x->piece_index != m_piece)
                 return;
 
@@ -194,19 +186,22 @@ public:
     void
     handle_alert(lt::alert* a) override
     {
-        if (lt::alert_cast<lt::torrent_alert>(a)) {
-            auto* x = lt::alert_cast<lt::torrent_alert>(a);
+        if (auto* x = lt::alert_cast<lt::torrent_error_alert>(a)) {
             if (x->handle.info_hash() != m_ih)
                 return;
-        }
 
-        if (lt::alert_cast<lt::torrent_error_alert>(a)) {
             set_exception(
                 std::make_exception_ptr(std::runtime_error("metadata failed")));
-        } else if (lt::alert_cast<lt::metadata_failed_alert>(a)) {
+        } else if (auto* x = lt::alert_cast<lt::metadata_failed_alert>(a)) {
+            if (x->handle.info_hash() != m_ih)
+                return;
+
             set_exception(
                 std::make_exception_ptr(std::runtime_error("metadata failed")));
-        } else if (lt::alert_cast<lt::metadata_received_alert>(a)) {
+        } else if (auto* x = lt::alert_cast<lt::metadata_received_alert>(a)) {
+            if (x->handle.info_hash() != m_ih)
+                return;
+
             // Metadata download is done
             set_value();
         }
@@ -226,8 +221,7 @@ public:
     void
     handle_alert(lt::alert* a) override
     {
-        if (lt::alert_cast<lt::torrent_removed_alert>(a)) {
-            auto* x = lt::alert_cast<lt::torrent_removed_alert>(a);
+        if (auto* x = lt::alert_cast<lt::torrent_removed_alert>(a)) {
             if (x->info_hash != m_ih)
                 return;
 
@@ -572,7 +566,10 @@ Download::download_metadata(MetadataProgressCb cb)
     while (!m_th.status().has_metadata) {
         auto r = f.wait_for(std::chrono::seconds(1));
         if (r == std::future_status::ready)
-            f.get();
+            // At this point, we know either metadata download is done and we
+            // can return early, or there was error and get() will throw and
+            // exception.
+            return f.get();
     }
 
     if (cb)
@@ -602,7 +599,9 @@ Download::download(lt::peer_request part, DataProgressCb cb)
     while (!m_th.have_piece(part.piece)) {
         auto r = f.wait_for(std::chrono::seconds(1));
         if (r == std::future_status::ready)
-            f.get();
+            // At this point, we know either download is done and we can return
+            // early, or there was error and get() will throw and exception.
+            return f.get();
     }
 
     if (cb)
