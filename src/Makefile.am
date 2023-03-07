@@ -30,5 +30,7 @@ libaccess_bittorrent_plugin_la_LIBADD = \
 	$(LIBTORRENT_LIBS)
 libaccess_bittorrent_plugin_la_LDFLAGS = \
 	-avoid-version \
+	-no-undefined \
 	-module \
+	-shared \
 	-export-symbol-regex ^vlc_entry
