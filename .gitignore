@@ -70,3 +70,6 @@ Makefile.in
 /missing
 .dirstamp
 .gdbinit
+
+# CMake
+/[Bb]uild/
