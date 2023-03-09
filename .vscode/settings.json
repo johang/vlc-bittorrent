@@ -10,6 +10,7 @@
     "files.associations": {
         "*.c": "c",
         "*.h": "c",
-        "*.h.in": "c"
+        "*.h.in": "c",
+        "config.H": "cpp"
     }
 }
