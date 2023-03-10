@@ -1,6 +1,4 @@
-# cmake version of vlc-bittorrent plugin by ori-d (https://github.com/ori-d)
-# added support for building on windows system.
-cmake_minimum_required (VERSION 3.25)
+cmake_minimum_required (VERSION 3.2)
 
 project ("vlc-bittorrent"
          LANGUAGES      C CXX
@@ -14,24 +12,26 @@ list (APPEND CMAKE_MODULE_PATH
 include (cm_cxx14_check)
 include (config_checks)
 
+option (VLC_BITTORRENT_BUILD_TESTS "" ON)
+
 # This value can be changed with CMake GUI mode.
-set (VLC_PLUGIN_REQUIRED_MIN_VERSION "3.0.0"
+set (VLC_BITTORRENT_MIN_VERSION_VLC_PLUGIN "3.0.0"
      CACHE STRING "VLC Plugin required version")
 
 # This value can be changed with CMake GUI mode.
-set (LIB_BITTORRENT_REQUIRED_MIN_VERSION "1.0.0"
+set (VLC_BITTORRENT_MIN_VERSION_TORRENT "1.0.0"
      CACHE STRING "LibTorrent required version")
 
 # Try to find pkg-congig
-find_package(PkgConfig REQUIRED)
-find_package(Threads REQUIRED)
+find_package (PkgConfig REQUIRED)
+find_package (Threads REQUIRED)
 
 # Check with PkgConfig if vlc-plugin
 # are available and throw an error if not, or less version is installed.
 pkg_check_modules (
     VlcPlugin
     REQUIRED
-    "vlc-plugin>=${VLC_PLUGIN_REQUIRED_MIN_VERSION}"
+    "vlc-plugin>=${VLC_BITTORRENT_MIN_VERSION_VLC_PLUGIN}"
 )
 
 # Check with PkgConfig if libtorrent-rasterbar
@@ -39,10 +39,14 @@ pkg_check_modules (
 pkg_check_modules (
     LibTorrent
     REQUIRED
-    "libtorrent-rasterbar>=${LIB_BITTORRENT_REQUIRED_MIN_VERSION}"
+    "libtorrent-rasterbar>=${VLC_BITTORRENT_MIN_VERSION_TORRENT}"
 )
 
 configure_file (".cmake/config.h.in" "src/config.h" @ONLY)
 
 add_subdirectory ("data")
 add_subdirectory ("src")
+
+if (VLC_BITTORRENT_BUILD_TESTS)
+    add_subdirectory ("test")
+endif (VLC_BITTORRENT_BUILD_TESTS)
