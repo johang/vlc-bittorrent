@@ -9,8 +9,8 @@
     "editor.insertSpaces": true,
     "files.associations": {
         "*.c": "c",
-        "*.h": "c",
-        "*.h.in": "c",
-        "config.H": "cpp"
+        "*.h": "cpp",
+        "*.h.in": "cpp",
+        "config.h": "cpp"
     }
 }

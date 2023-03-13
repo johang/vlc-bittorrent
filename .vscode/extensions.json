@@ -1,0 +1,10 @@
+{
+    "recommendations": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "twxs.cmake",
+        "josetr.cmake-language-support-vscode",
+        "ms-vscode.makefile-tools",
+        "cschlosser.doxdocgen"
+    ]
+}

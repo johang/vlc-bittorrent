@@ -49,7 +49,8 @@ aclocal/lt~obsolete.m4
 Makefile
 
 # generated files
-m4
+m4/
+!m4/ax_cxx_compile_stdcxx.m4
 Makefile
 Makefile.in
 .deps
