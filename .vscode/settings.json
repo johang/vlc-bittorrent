@@ -7,10 +7,5 @@
     "editor.detectIndentation": false,
     "editor.tabSize": 4,
     "editor.insertSpaces": true,
-    "files.associations": {
-        "*.c": "c",
-        "*.h": "cpp",
-        "*.h.in": "cpp",
-        "config.h": "cpp"
-    }
+    "cmake.generator": "Ninja"
 }

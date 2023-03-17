@@ -19,7 +19,7 @@ set_target_properties (
 )
 
 target_compile_definitions (
-    access_bittorrent_plugin
+    "access_bittorrent_plugin"
     PUBLIC
     -D__PLUGIN__
     -DHAVE_CONFIG_H
@@ -28,7 +28,7 @@ target_compile_definitions (
 )
 
 target_include_directories (
-    access_bittorrent_plugin
+    "access_bittorrent_plugin"
     PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
     ${VlcPlugin_INCLUDE_DIRS}
@@ -36,8 +36,22 @@ target_include_directories (
 )
 
 target_link_libraries (
-    access_bittorrent_plugin
+    "access_bittorrent_plugin"
     ${VlcPlugin_LINK_LIBRARIES}
     ${LibTorrent_LINK_LIBRARIES}
     Threads::Threads
+)
+
+target_compile_options(
+    "access_bittorrent_plugin"
+    PRIVATE
+    -Wall
+    -Wextra
+    -Wconversion
+    -Wsign-compare
+    -Wsign-conversion
+    -Wno-unused-parameter
+    -Wno-deprecated
+	-Wno-unused
+	-Wodr
 )

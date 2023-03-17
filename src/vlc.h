@@ -17,8 +17,8 @@ You should have received a copy of the GNU General Public License
 along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef VLC_BITTORRENT_VLC_H
-#define VLC_BITTORRENT_VLC_H
+#ifndef __VLC_H__
+#define __VLC_H__
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -31,6 +31,10 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #pragma GCC diagnostic ignored "-Wconversion"
 // clang-format off
 // This has to be first because the libvlc headers have issues
+#if defined(__MINGW32__) || defined (WIN32)
+/*  */
+#   undef __USE_MINGW_ANSI_STDIO
+#endif
 #include <vlc_common.h>
 // clang-format off
 #include <vlc_access.h>
@@ -48,6 +52,11 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #include <vlc_threads.h>
 #include <vlc_url.h>
 #include <vlc_variables.h>
+
+#if defined(__MINGW32__) || defined (WIN32)
+#   undef poll /* VLC bug poll defined as macro */
+#endif
+
 #pragma GCC diagnostic pop
 
 #define DLDIR_CONFIG "bittorrent-download-path"
@@ -62,4 +71,4 @@ get_cache_directory(vlc_object_t* p_this);
 bool
 get_keep_files(vlc_object_t* p_this);
 
-#endif
+#endif /* __VLC_H__ */
