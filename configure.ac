@@ -1,5 +1,5 @@
 AC_PREREQ([2.69])
-AC_INIT(vlc-plugin-bittorrent, 2.14, johan.gunnarsson@gmail.com, vlc-bittorrent, https://github.com/johang/vlc-bittorrent)
+AC_INIT([vlc-plugin-bittorrent],[2.14],[johan.gunnarsson@gmail.com],[vlc-bittorrent],[https://github.com/johang/vlc-bittorrent])
 AC_CONFIG_SRCDIR([src/module.cpp])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
@@ -26,10 +26,11 @@ AM_CONDITIONAL([WITH_TESTS], [test x$with_tests = xyes])
 AM_COND_IF([WITH_TESTS], [PKG_CHECK_MODULES(LIBVLC, libvlc >= 3.0.0)])
 
 # Compile with -std=c++14 or later
-AX_CXX_COMPILE_STDCXX_14(noext, mandatory)
+AX_CXX_COMPILE_STDCXX(14, noext, mandatory)
 
 # Check libtool
 LT_INIT
 
 AC_CONFIG_HEADERS(src/config.h)
-AC_OUTPUT(Makefile src/Makefile test/Makefile data/Makefile)
+AC_CONFIG_FILES([Makefile src/Makefile test/Makefile data/Makefile])
+AC_OUTPUT

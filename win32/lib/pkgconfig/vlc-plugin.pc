@@ -1,0 +1,24 @@
+prefix=/builds/videolan/vlc/win64/_win32
+exec_prefix=${prefix}
+includedir=${prefix}/include
+datarootdir=${prefix}/share
+libdir=${exec_prefix}/lib
+datadir=${datarootdir}
+pkgincludedir=${prefix}/include/vlc
+pkgdatadir=${datadir}/vlc
+pkglibdir=${libdir}/vlc
+pluginsdir=${pkglibdir}/plugins
+
+Name: VLC plugin API
+Description: VLC media player plugin interface
+Version: 3.0.18
+Cflags: -I${includedir} -I${pkgincludedir}/plugins \
+	-D__PLUGIN__ \
+	-D_FILE_OFFSET_BITS=64 \
+	 \
+	-D_REENTRANT \
+	-D_THREAD_SAFE
+Libs: -L${libdir} -lvlccore
+Libs.private:  \
+	-L/builds/videolan/vlc/contrib/x86_64-w64-mingw32/lib -lintl -L/builds/videolan/vlc/contrib/x86_64-w64-mingw32/lib -liconv -L/builds/videolan/vlc/contrib/x86_64-w64-mingw32/lib -liconv \
+	-lws2_32 -liphlpapi  -lm
