@@ -399,12 +399,13 @@ Download::get_metadata(std::string url, std::string save_path,
 
     lt::parse_magnet_uri(url, atp, ec);
     if (ec) {
+        lt::error_code ec2;
 #if LIBTORRENT_VERSION_NUM < 10200
-        atp.ti = boost::make_shared<lt::torrent_info>(url, boost::ref(ec));
+        atp.ti = boost::make_shared<lt::torrent_info>(url, boost::ref(ec2));
 #else
-        atp.ti = std::make_shared<lt::torrent_info>(url, std::ref(ec));
+        atp.ti = std::make_shared<lt::torrent_info>(url, std::ref(ec2));
 #endif
-        if (ec)
+        if (ec2)
             throw std::runtime_error("Failed to parse metadata");
     } else {
         std::string path = cache_path + DIR_SEP
@@ -550,7 +551,7 @@ Download::download_metadata(MetadataProgressCb cb)
 {
     D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-    if (m_th.status().has_metadata)
+    if (m_th.has_metadata())
         return;
 
     MetadataDownloadPromise dlprom(m_th.info_hash());
@@ -563,7 +564,7 @@ Download::download_metadata(MetadataProgressCb cb)
         cb(0.0);
 
     // Wait for metadata to download
-    while (!m_th.status().has_metadata) {
+    while (!m_th.has_metadata()) {
         auto r = f.wait_for(std::chrono::seconds(1));
         if (r == std::future_status::ready)
             // At this point, we know either metadata download is done and we
