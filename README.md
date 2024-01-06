@@ -37,11 +37,11 @@ Probably. I have not tested. It should run since libtorrent works on most system
 
 ## Dependencies (on Linux)
 
-* libtorrent ("libtorrent-rasterbar9" in Ubuntu 18.04)
+* libtorrent ("libtorrent-rasterbar2.0" in Ubuntu 22.04)
 
 ## Building from git on a recent Debian/Ubuntu
 
-    $ sudo apt-get install autoconf automake libtool make libvlc-dev libvlccore-dev libtorrent-rasterbar-dev g++
+    $ sudo apt-get install autoconf autoconf-archive automake libtool make libvlc-dev libvlccore-dev libtorrent-rasterbar-dev g++
     $ git clone https://github.com/johang/vlc-bittorrent.git vlc-bittorrent
     $ cd vlc-bittorrent
     $ autoreconf -i
