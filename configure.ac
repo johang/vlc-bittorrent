@@ -32,4 +32,5 @@ AX_CXX_COMPILE_STDCXX_14(noext, mandatory)
 LT_INIT
 
 AC_CONFIG_HEADERS(src/config.h)
-AC_OUTPUT(Makefile src/Makefile test/Makefile data/Makefile)
+AC_CONFIG_FILES([Makefile src/Makefile test/Makefile data/Makefile])
+AC_OUTPUT
