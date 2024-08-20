@@ -3,8 +3,12 @@ name: vlc-bittorrent CI
 on:
   push:
     branches: '*'
+  pull_request:
+    branches:
+      - 'master'
   schedule:
-    - cron: "00 22 * * 0"
+    # Every Sunday evening
+    - cron: '00 22 * * 0'
 
 jobs:
   ubuntu:
