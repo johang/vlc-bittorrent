@@ -320,7 +320,7 @@ Download::read(int file, int64_t fileoff, char* buf, size_t buflen,
 }
 
 void
-Download::set_piece_priority(int file, int64_t off, int size, int prio)
+Download::set_piece_priority(int file, int64_t off, int size, libtorrent::download_priority_t prio)
 {
     D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
