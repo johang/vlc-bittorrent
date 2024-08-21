@@ -1,0 +1,99 @@
+# check cxx_std_14
+cmake_minimum_required (VERSION 3.8.2)
+
+include (CheckIncludeFile)
+
+check_include_file ("dlfcn.h" HAVE_DLFCN_H)
+check_include_file ("inttypes.h" HAVE_INTTYPES_H)
+check_include_file ("stdint.h" HAVE_STDINT_H)
+check_include_file ("stdio.h" HAVE_STDIO_H)
+check_include_file ("stdlib.h" HAVE_STDLIB_H)
+check_include_file ("strings.h" HAVE_STRINGS_H)
+check_include_file ("string.h" HAVE_STRING_H)
+check_include_file ("sys/stat.h" HAVE_SYS_STAT_H)
+check_include_file ("sys/types.h" HAVE_SYS_TYPES_H)
+check_include_file ("unistd.h" HAVE_UNISTD_H)
+
+# config file options
+set (PACKAGE "vlc-bittorrent")
+set (PLIGIN_PACKAGE "${PACKAGE}")
+set (PLIGIN_PACKAGE_BUGREPORT "johan.gunnarsson@gmail.com")
+set (PLIGIN_PACKAGE_NAME "${PROJECT_NAME}")
+set (PLIGIN_PACKAGE_STRING "${PACKAGE_NAME} ${PROJECT_VERSION}")
+set (PLIGIN_PACKAGE_TARNAME "${PACKAGE}")
+set (PLIGIN_PACKAGE_VERSION "${PROJECT_VERSION}")
+set (PLIGIN_VERSION "${PROJECT_VERSION}")
+set (PLIGIN_PACKAGE_URL "${PROJECT_HOMEPAGE_URL}")
+
+configure_file (
+  "${CMAKE_SOURCE_DIR}/.cmake/config.h.in"
+  "${CMAKE_BINARY_DIR}/config.h"
+)
+
+# Find required packages
+find_package (PkgConfig REQUIRED)
+
+pkg_check_modules (
+  VlcPlugin
+    REQUIRED
+    IMPORTED_TARGET
+      "vlc-plugin >= 3.0.0")
+
+pkg_check_modules (
+  LibtorrentRasterbar
+    REQUIRED
+    IMPORTED_TARGET
+      "libtorrent-rasterbar >= 1.2.0")
+
+# add shared library
+add_library (
+  access_bittorrent_plugin
+    SHARED
+      module.cpp
+      metadata.cpp
+      magnetmetadata.cpp
+      data.cpp
+      download.cpp
+      session.cpp
+      vlc.cpp)
+
+# compile definitions
+target_compile_definitions (
+  access_bittorrent_plugin
+    PUBLIC
+      -DMODULE_STRING=\"bittorrent\"
+      -D__PLUGIN__
+      -DHAVE_CONFIG_H
+)
+
+# link with libraries
+target_link_libraries (
+  access_bittorrent_plugin
+    PUBLIC
+      PkgConfig::VlcPlugin
+      PkgConfig::LibtorrentRasterbar
+)
+
+# add binary dir as include dir with config.h file.
+target_include_directories (
+  access_bittorrent_plugin
+    PRIVATE
+      ${CMAKE_BINARY_DIR}
+)
+
+# set properties like cxx standard, library output, archive output
+set_target_properties (
+  access_bittorrent_plugin
+    PROPERTIES
+      CXX_STANDARD 14
+      CXX_STANDARD_REQUIRED YES
+      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+      ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+)
+
+# set cxx 14 as required
+target_compile_features (
+  access_bittorrent_plugin
+    PUBLIC
+      cxx_std_14
+)

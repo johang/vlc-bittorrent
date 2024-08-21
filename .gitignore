@@ -1,3 +1,6 @@
+# cmake mostly build folder.
+/[Bb]uild/
+
 *.a
 *.la
 *.lai
