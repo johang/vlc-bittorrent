@@ -4,6 +4,7 @@
 *.lo
 *.o
 *.so
+/[Bb]uild/
 
 # generated files
 m4
