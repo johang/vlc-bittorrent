@@ -2,6 +2,7 @@
 cmake_minimum_required (VERSION 3.8.2)
 
 include (CheckIncludeFile)
+include (CPack)
 
 check_include_file ("dlfcn.h" HAVE_DLFCN_H)
 check_include_file ("inttypes.h" HAVE_INTTYPES_H)
@@ -30,25 +31,34 @@ configure_file (
   "${CMAKE_BINARY_DIR}/config.h"
 )
 
-# Find required packages
-find_package (PkgConfig REQUIRED)
+if (CMAKE_TOOLCHAIN_FILE)
+  find_package (LibtorrentRasterbar CONFIG REQUIRED)
+  add_library (Libtorrent ALIAS LibtorrentRasterbar::torrent-rasterbar)
+else ()
+  message (STATUS "Toolchain option not found in environment. Using PkgConfig by default.")
+  find_package (PkgConfig REQUIRED)
+  find_package (Threads REQUIRED)
 
-pkg_check_modules (
-  VlcPlugin
-    REQUIRED
-    IMPORTED_TARGET
-      "vlc-plugin >= 3.0.0")
+  pkg_check_modules (
+    VlcPlugin
+      REQUIRED IMPORTED_TARGET
+        "vlc-plugin >= 3.0.0"
+  )
 
-pkg_check_modules (
-  LibtorrentRasterbar
-    REQUIRED
-    IMPORTED_TARGET
-      "libtorrent-rasterbar >= 1.2.0")
+  pkg_check_modules (
+    LibtorrentRasterbar
+      REQUIRED
+      IMPORTED_TARGET
+        "libtorrent-rasterbar >= 1.2.0"
+  )
+
+  add_library (Libtorrent ALIAS PkgConfig::LibtorrentRasterbar)
+endif ()
 
 # add shared library
 add_library (
   access_bittorrent_plugin
-    SHARED
+    MODULE
       module.cpp
       metadata.cpp
       magnetmetadata.cpp
@@ -71,7 +81,7 @@ target_link_libraries (
   access_bittorrent_plugin
     PUBLIC
       PkgConfig::VlcPlugin
-      PkgConfig::LibtorrentRasterbar
+      Libtorrent
 )
 
 # add binary dir as include dir with config.h file.
