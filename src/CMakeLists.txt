@@ -2,7 +2,6 @@
 cmake_minimum_required (VERSION 3.8.2)
 
 include (CheckIncludeFile)
-include (CPack)
 
 check_include_file ("dlfcn.h" HAVE_DLFCN_H)
 check_include_file ("inttypes.h" HAVE_INTTYPES_H)
@@ -14,6 +13,11 @@ check_include_file ("string.h" HAVE_STRING_H)
 check_include_file ("sys/stat.h" HAVE_SYS_STAT_H)
 check_include_file ("sys/types.h" HAVE_SYS_TYPES_H)
 check_include_file ("unistd.h" HAVE_UNISTD_H)
+
+if (WIN32)
+  file (DOWNLOAD "https://get.videolan.org/vlc/last/win64/vlc-3.0.21-win64.7z" "vendor/vlc.7z")
+  file (ARCHIVE_EXTRACT INPUT "vendor/vlc.7z" "vendor/vlc")
+endif (WIN32)
 
 # config file options
 set (PACKAGE "vlc-bittorrent")
@@ -52,7 +56,7 @@ else ()
         "libtorrent-rasterbar >= 1.2.0"
   )
 
-  add_library (Libtorrent ALIAS PkgConfig::LibtorrentRasterbar)
+  add_library (Vendor::Libtorrent ALIAS PkgConfig::LibtorrentRasterbar)
 endif ()
 
 # add shared library
@@ -81,7 +85,7 @@ target_link_libraries (
   access_bittorrent_plugin
     PUBLIC
       PkgConfig::VlcPlugin
-      Libtorrent
+      Vendor::Libtorrent
 )
 
 # add binary dir as include dir with config.h file.

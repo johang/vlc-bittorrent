@@ -1,26 +1,37 @@
 cmake_minimum_required (VERSION 3.8.2)
 
-find_package (PkgConfig REQUIRED)
 find_package (Threads REQUIRED)
 
-pkg_check_modules (
-  Vlc
-    REQUIRED IMPORTED_TARGET
-      "libvlc >= 3.0.0"
-)
+if (CMAKE_TOOLCHAIN_FILE)
+  find_package (LibtorrentRasterbar CONFIG REQUIRED)
+  add_library (Libtorrent ALIAS LibtorrentRasterbar::torrent-rasterbar)
+else ()
+  message (STATUS "Toolchain option not found in environment. Using PkgConfig by default.")
+  find_package (PkgConfig REQUIRED)
 
-pkg_check_modules (
-  VlcPlugin
-    REQUIRED IMPORTED_TARGET
-      "vlc-plugin >= 3.0.0"
-)
+  pkg_check_modules (
+    Vlc
+      REQUIRED IMPORTED_TARGET
+        "libvlc >= 3.0.0"
+  )
 
-pkg_check_modules (
-  LibtorrentRasterbar
-    REQUIRED
-    IMPORTED_TARGET
-      "libtorrent-rasterbar >= 1.2.0"
-)
+  pkg_check_modules (
+    VlcPlugin
+      REQUIRED IMPORTED_TARGET
+        "vlc-plugin >= 3.0.0"
+  )
+
+  pkg_check_modules (
+    LibtorrentRasterbar
+      REQUIRED
+      IMPORTED_TARGET
+        "libtorrent-rasterbar >= 1.2.0"
+  )
+
+  add_library (Vendor::Vlc ALIAS PkgConfig::Vlc)
+  add_library (Vendor::VlcPlugin ALIAS PkgConfig::VlcPlugin)
+  add_library (Vendor::Libtorrent ALIAS PkgConfig::LibtorrentRasterbar)
+endif ()
 
 add_executable (
   vlcdummy
@@ -30,7 +41,7 @@ add_executable (
 target_link_libraries (
   vlcdummy
     PUBLIC
-      PkgConfig::Vlc
+      Vendor::Vlc
 )
 
 set_target_properties (
@@ -46,7 +57,7 @@ add_executable (
 
 target_link_libraries (
   miniclient
-    PkgConfig::LibtorrentRasterbar
+    Vendor::Libtorrent
     Threads::Threads
 )
 
@@ -72,8 +83,8 @@ target_include_directories (
 target_link_libraries (
   downloaddummy
     PRIVATE
-      PkgConfig::VlcPlugin
-      PkgConfig::LibtorrentRasterbar
+      Vendor::VlcPlugin
+      Vendor::Libtorrent
 )
 
 find_program (BASH_PROGRAM sh)
