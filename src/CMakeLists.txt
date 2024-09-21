@@ -1,5 +1,5 @@
 # check cxx_std_14
-cmake_minimum_required (VERSION 3.8.2)
+cmake_minimum_required (VERSION 3.14)
 
 include (CheckIncludeFile)
 
@@ -13,11 +13,6 @@ check_include_file ("string.h" HAVE_STRING_H)
 check_include_file ("sys/stat.h" HAVE_SYS_STAT_H)
 check_include_file ("sys/types.h" HAVE_SYS_TYPES_H)
 check_include_file ("unistd.h" HAVE_UNISTD_H)
-
-if (WIN32)
-  file (DOWNLOAD "https://get.videolan.org/vlc/last/win64/vlc-3.0.21-win64.7z" "vendor/vlc.7z")
-  file (ARCHIVE_EXTRACT INPUT "vendor/vlc.7z" "vendor/vlc")
-endif (WIN32)
 
 # config file options
 set (PACKAGE "vlc-bittorrent")
@@ -35,29 +30,23 @@ configure_file (
   "${CMAKE_BINARY_DIR}/config.h"
 )
 
-if (CMAKE_TOOLCHAIN_FILE)
-  find_package (LibtorrentRasterbar CONFIG REQUIRED)
-  add_library (Libtorrent ALIAS LibtorrentRasterbar::torrent-rasterbar)
-else ()
-  message (STATUS "Toolchain option not found in environment. Using PkgConfig by default.")
-  find_package (PkgConfig REQUIRED)
-  find_package (Threads REQUIRED)
+find_package (PkgConfig REQUIRED)
+find_package (Threads REQUIRED)
 
-  pkg_check_modules (
-    VlcPlugin
-      REQUIRED IMPORTED_TARGET
-        "vlc-plugin >= 3.0.0"
-  )
+pkg_check_modules (
+  VlcPlugin
+    REQUIRED IMPORTED_TARGET
+      "vlc-plugin >= 3.0.0"
+)
 
-  pkg_check_modules (
-    LibtorrentRasterbar
-      REQUIRED
-      IMPORTED_TARGET
-        "libtorrent-rasterbar >= 1.2.0"
-  )
+pkg_check_modules (
+  LibtorrentRasterbar
+    REQUIRED
+    IMPORTED_TARGET
+      "libtorrent-rasterbar >= 1.2.0"
+)
 
-  add_library (Vendor::Libtorrent ALIAS PkgConfig::LibtorrentRasterbar)
-endif ()
+add_library (Vendor::Libtorrent ALIAS PkgConfig::LibtorrentRasterbar)
 
 # add shared library
 add_library (

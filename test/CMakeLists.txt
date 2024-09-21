@@ -1,102 +1,42 @@
-cmake_minimum_required (VERSION 3.8.2)
+cmake_minimum_required (VERSION 3.14)
 
+find_package (GTest)
+
+if (NOT GTest_FOUND)
+  message (FATAL_ERROR "Please run `sudo apt install libgtest-dev` on Ubuntu.")
+endif (NOT GTest_FOUND)
+
+find_package (PkgConfig REQUIRED)
 find_package (Threads REQUIRED)
 
-if (CMAKE_TOOLCHAIN_FILE)
-  find_package (LibtorrentRasterbar CONFIG REQUIRED)
-  add_library (Libtorrent ALIAS LibtorrentRasterbar::torrent-rasterbar)
-else ()
-  message (STATUS "Toolchain option not found in environment. Using PkgConfig by default.")
-  find_package (PkgConfig REQUIRED)
+pkg_check_modules (LibVlcPlugin REQUIRED IMPORTED_TARGET "vlc-plugin>=3.0.0")
+pkg_check_modules (LibVlc REQUIRED IMPORTED_TARGET "libvlc>=3.0.0")
+pkg_check_modules (LibtorrentRasterbar REQUIRED IMPORTED_TARGET "libtorrent-rasterbar >= 1.2.0")
 
-  pkg_check_modules (
-    Vlc
-      REQUIRED IMPORTED_TARGET
-        "libvlc >= 3.0.0"
-  )
+include (GoogleTest)
 
-  pkg_check_modules (
-    VlcPlugin
-      REQUIRED IMPORTED_TARGET
-        "vlc-plugin >= 3.0.0"
-  )
-
-  pkg_check_modules (
-    LibtorrentRasterbar
-      REQUIRED
-      IMPORTED_TARGET
-        "libtorrent-rasterbar >= 1.2.0"
-  )
-
-  add_library (Vendor::Vlc ALIAS PkgConfig::Vlc)
-  add_library (Vendor::VlcPlugin ALIAS PkgConfig::VlcPlugin)
-  add_library (Vendor::Libtorrent ALIAS PkgConfig::LibtorrentRasterbar)
-endif ()
-
-add_executable (
-  vlcdummy
-    "vlcdummy.c"
-)
-
-target_link_libraries (
-  vlcdummy
-    PUBLIC
-      Vendor::Vlc
-)
-
-set_target_properties (
-  vlcdummy
-    PROPERTIES
-      RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-)
-
-add_executable (
-  miniclient
-    "miniclient.cpp"
-)
-
-target_link_libraries (
-  miniclient
-    Vendor::Libtorrent
-    Threads::Threads
-)
-
-add_executable (
-  downloaddummy
-    "downloaddummy.cpp"
-    "../src/download.cpp"
-    "../src/session.cpp"
-)
-
-set_target_properties (
-  downloaddummy
-    PROPERTIES
-      RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-)
-
-target_include_directories (
-  downloaddummy
+function (create_vlc_test TEST_NAME TEST_FILES)
+  add_executable (${TEST_NAME})
+  target_sources (${TEST_NAME} PRIVATE ${TEST_FILES})
+  target_include_directories (${TEST_NAME} PRIVATE "../src")
+  target_link_libraries (${TEST_NAME}
     PRIVATE
-      "../src/"
-)
+      GTest::gtest
+      GTest::gtest_main
+      Threads::Threads
+      PkgConfig::LibVlc
+      PkgConfig::LibVlcPlugin
+      PkgConfig::LibtorrentRasterbar)
+  gtest_discover_tests (${TEST_NAME} TEST_LIST VLC_TESTS_WITH_ARGS WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/data/")
+  get_target_property (PLUGIN_OUTPUT_DIRECTORY access_bittorrent_plugin RUNTIME_OUTPUT_DIRECTORY)
+  
+  set_tests_properties (${VLC_TESTS_WITH_ARGS}
+    PROPERTIES
+      ENVIRONMENT "VLC_PLUGIN_PATH=${PLUGIN_OUTPUT_DIRECTORY}"
+      TIMEOUT 1
+      WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/data/")
+endfunction (create_vlc_test TEST_NAME TEST_FILES)
 
-target_link_libraries (
-  downloaddummy
-    PRIVATE
-      Vendor::VlcPlugin
-      Vendor::Libtorrent
-)
-
-find_program (BASH_PROGRAM sh)
-
-add_test (
-  vlcdummy
-  ${BASH_PROGRAM}
-    "${CMAKE_CURRENT_LIST_DIR}/vlcdummy.test"
-)
-
-add_test (
-  downloaddummy
-  ${BASH_PROGRAM}
-    "${CMAKE_CURRENT_LIST_DIR}/downloaddummy.test"
-)
+create_vlc_test (dummydownload "download_dummy.cpp;../src/download.cpp;../src/session.cpp")
+# create_vlc_test (miniclient miniclient.cpp)
+# create_vlc_test (vlcdummy vlcdummy.c)

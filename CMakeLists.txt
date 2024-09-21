@@ -1,5 +1,5 @@
 # check cxx_std_14
-cmake_minimum_required (VERSION 3.8.2)
+cmake_minimum_required (VERSION 3.14)
 
 project (
   "vlc-plugin-bittorrent"
@@ -9,9 +9,11 @@ project (
   LANGUAGES C CXX
 )
 
-option (ENABLE_TESTS "Testing" ON)
+if (WIN32)
+  message (FATAL_ERROR "Sorry, building for windows does not supported for this time.")
+endif (WIN32)
 
-add_subdirectory (src)
+option (ENABLE_TESTS "Testing" ON)
 
 set (
   CPACK_PACKAGE_NAME ${PROJECT_NAME}
@@ -45,6 +47,8 @@ set (CPACK_DEB_COMPONENT_INSTALL YES)
 set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS YES)
 
 include (CPack)
+
+add_subdirectory (src)
 
 if (ENABLE_TESTS)
   enable_testing()
