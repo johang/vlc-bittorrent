@@ -1,4 +1,10 @@
 {
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "files.trimTrailingWhitespace": true,
+  "editor.detectIndentation": true,
+  "editor.insertSpaces": true,
+  "editor.rulers": [80, 120],
   "files.associations": {
     "array": "cpp",
     "string": "cpp",

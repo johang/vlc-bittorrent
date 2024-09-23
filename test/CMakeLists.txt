@@ -15,11 +15,11 @@ pkg_check_modules (LibtorrentRasterbar REQUIRED IMPORTED_TARGET "libtorrent-rast
 
 include (GoogleTest)
 
-function (create_vlc_test TEST_NAME TEST_FILES)
-  add_executable (${TEST_NAME})
-  target_sources (${TEST_NAME} PRIVATE ${TEST_FILES})
-  target_include_directories (${TEST_NAME} PRIVATE "../src")
-  target_link_libraries (${TEST_NAME}
+function (create_dummy_download_tests TEST_FILES)
+  add_executable (dummydownload)
+  target_sources (dummydownload PRIVATE ${TEST_FILES})
+  target_include_directories (dummydownload PRIVATE "../src")
+  target_link_libraries (dummydownload
     PRIVATE
       GTest::gtest
       GTest::gtest_main
@@ -27,16 +27,17 @@ function (create_vlc_test TEST_NAME TEST_FILES)
       PkgConfig::LibVlc
       PkgConfig::LibVlcPlugin
       PkgConfig::LibtorrentRasterbar)
-  gtest_discover_tests (${TEST_NAME} TEST_LIST VLC_TESTS_WITH_ARGS WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/data/")
-  get_target_property (PLUGIN_OUTPUT_DIRECTORY access_bittorrent_plugin RUNTIME_OUTPUT_DIRECTORY)
-  
-  set_tests_properties (${VLC_TESTS_WITH_ARGS}
-    PROPERTIES
-      ENVIRONMENT "VLC_PLUGIN_PATH=${PLUGIN_OUTPUT_DIRECTORY}"
-      TIMEOUT 1
-      WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/data/")
-endfunction (create_vlc_test TEST_NAME TEST_FILES)
 
-create_vlc_test (dummydownload "download_dummy.cpp;../src/download.cpp;../src/session.cpp")
+  get_target_property (PLUGIN_OUTPUT_DIRECTORY access_bittorrent_plugin RUNTIME_OUTPUT_DIRECTORY)
+
+  gtest_discover_tests (dummydownload
+    LIST_TESTS DUMMY_DOWNLOAD_TESTS
+    WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/data/"
+    PROPERTIES
+      ENVIRONMENT VLC_PLUGIN_PATH=${PLUGIN_OUTPUT_DIRECTORY}
+      TIMEOUT 60)
+endfunction (create_dummy_download_tests TEST_FILES)
+
+create_dummy_download_tests ("download_dummy.cpp;../src/download.cpp;../src/session.cpp")
 # create_vlc_test (miniclient miniclient.cpp)
 # create_vlc_test (vlcdummy vlcdummy.c)
