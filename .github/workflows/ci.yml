@@ -1,5 +1,8 @@
 name: vlc-bittorrent CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: '*'
