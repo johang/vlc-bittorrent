@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
 
+project(vlc-bittorrent)
+
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 
