@@ -66,6 +66,20 @@ XXX: This file is basically just glue code so vlc can make interruptible
 
 namespace lt = libtorrent;
 
+static std::string
+to_hex(const lt::sha1_hash& ih)
+{
+    static const char chars[] = "0123456789abcdef";
+
+    std::string result;
+    result.reserve(40);
+    for (auto byte : ih.to_string()) {
+        result += chars[(byte >> 4) & 0x0F];
+        result += chars[byte & 0x0F];
+    }
+    return result;
+}
+
 template <typename T> class vlc_interrupt_guard {
 public:
     vlc_interrupt_guard(T& pr)
@@ -131,7 +145,7 @@ public:
             if (x->piece != m_piece)
                 return;
 
-            if (x->ec)
+            if (x->error)
                 set_exception(
                     std::make_exception_ptr(std::runtime_error("read failed")));
             else
@@ -222,7 +236,7 @@ public:
     handle_alert(lt::alert* a) override
     {
         if (auto* x = lt::alert_cast<lt::torrent_removed_alert>(a)) {
-            if (x->info_hash != m_ih)
+            if (x->info_hashes.get_best() != m_ih)
                 return;
 
             // Remove is done
@@ -392,8 +406,8 @@ Download::get_metadata(std::string url, std::string save_path,
 
     lt::add_torrent_params atp;
     atp.save_path = save_path;
-    atp.flags &= ~lt::add_torrent_params::flag_auto_managed;
-    atp.flags &= ~lt::add_torrent_params::flag_paused;
+    atp.flags &= ~lt::torrent_flags::auto_managed;
+    atp.flags &= ~lt::torrent_flags::paused;
 
     lt::error_code ec;
 
@@ -408,8 +422,7 @@ Download::get_metadata(std::string url, std::string save_path,
         if (ec2)
             throw std::runtime_error("Failed to parse metadata");
     } else {
-        std::string path = cache_path + DIR_SEP
-            + lt::to_hex(atp.info_hash.to_string()) + ".torrent";
+        std::string path = cache_path + DIR_SEP + to_hex(atp.info_hashes.get_best()) + ".torrent";
 
         // Try to read up cache
 #if LIBTORRENT_VERSION_NUM < 10200
@@ -454,7 +467,7 @@ Download::get_download(lt::add_torrent_params& atp, bool k)
 {
     D(printf("%s:%d: %s (from atp)\n", __FILE__, __LINE__, __func__));
 
-    lt::sha1_hash ih = atp.ti ? atp.ti->info_hash() : atp.info_hash;
+    lt::sha1_hash ih = atp.ti ? atp.ti->info_hash() : atp.info_hashes.get_best();
 
     static std::mutex mtx;
     std::unique_lock<std::mutex> lock(mtx);
@@ -477,9 +490,9 @@ Download::get_download(char* md, size_t mdsz, std::string sp, bool k)
 
     lt::add_torrent_params atp;
     atp.save_path = sp;
-    atp.flags &= ~lt::add_torrent_params::flag_auto_managed;
-    atp.flags &= ~lt::add_torrent_params::flag_paused;
-    atp.flags &= ~lt::add_torrent_params::flag_duplicate_is_error;
+    atp.flags &= ~lt::torrent_flags::auto_managed;
+    atp.flags &= ~lt::torrent_flags::paused;
+    atp.flags &= ~lt::torrent_flags::duplicate_is_error;
 
     lt::error_code ec;
 #if LIBTORRENT_VERSION_NUM < 10200
@@ -526,7 +539,7 @@ Download::get_infohash()
 
     download_metadata();
 
-    return lt::to_hex(m_th.torrent_file()->info_hash().to_string());
+    return to_hex(m_th.torrent_file()->info_hashes().get_best());
 }
 
 std::shared_ptr<std::vector<char>>
@@ -551,7 +564,7 @@ Download::download_metadata(MetadataProgressCb cb)
 {
     D(printf("%s:%d: %s()\n", __FILE__, __LINE__, __func__));
 
-    if (m_th.has_metadata())
+    if (m_th.status().has_metadata)
         return;
 
     MetadataDownloadPromise dlprom(m_th.info_hash());
@@ -564,7 +577,7 @@ Download::download_metadata(MetadataProgressCb cb)
         cb(0.0);
 
     // Wait for metadata to download
-    while (!m_th.has_metadata()) {
+    while (!m_th.status().has_metadata) {
         auto r = f.wait_for(std::chrono::seconds(1));
         if (r == std::future_status::ready)
             // At this point, we know either metadata download is done and we

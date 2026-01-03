@@ -14,7 +14,7 @@ pkg_check_modules(
 pkg_check_modules(
   LibtorrentRasterbar
     REQUIRED IMPORTED_TARGET
-      "libtorrent-rasterbar >= 1.2.0"
+      "libtorrent-rasterbar >= 2.0.0"
 )
 
 add_library(

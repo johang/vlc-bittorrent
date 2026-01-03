@@ -23,7 +23,7 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #define DD(x)
 
 #define LIBTORRENT_ADD_TORRENT_ALERTS \
-    (lt::alert::storage_notification | lt::alert::progress_notification \
+    (lt::alert::storage_notification | lt::alert::piece_progress_notification \
         | lt::alert::status_notification | lt::alert::error_notification)
 
 #define LIBTORRENT_DHT_NODES \

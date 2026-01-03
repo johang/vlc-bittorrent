@@ -15,7 +15,7 @@ AM_INIT_AUTOMAKE
 
 # Check libraries
 PKG_CHECK_MODULES(VLC_PLUGIN, vlc-plugin >= 3.0.0)
-PKG_CHECK_MODULES(LIBTORRENT, libtorrent-rasterbar >= 1.2.0)
+PKG_CHECK_MODULES(LIBTORRENT, libtorrent-rasterbar >= 2.0.0)
 
 # Check libvlc library only if --with-tests
 AC_ARG_WITH(
