@@ -35,8 +35,6 @@ XXX: This file is basically just glue code so vlc can make interruptible
 #include <stdexcept>
 
 #include "download.h"
-#include "session.h"
-#include "vlc.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-conversion"
@@ -53,6 +51,8 @@ XXX: This file is basically just glue code so vlc can make interruptible
 #include <libtorrent/torrent_info.hpp>
 #include <libtorrent/version.hpp>
 #pragma GCC diagnostic pop
+
+#include "vlc.h"
 
 #define D(x)
 #define DD(x)

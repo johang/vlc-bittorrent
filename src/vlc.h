@@ -24,6 +24,14 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #endif
 
+#ifdef _WIN32
+#include <winsock2.h>
+// VLC's Windows thread helpers expect poll() to exist.
+#ifndef poll
+#define poll WSAPoll
+#endif
+#endif
+
 #include <string>
 
 #pragma GCC diagnostic push
