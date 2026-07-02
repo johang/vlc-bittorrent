@@ -20,7 +20,7 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef VLC_BITTORRENT_MAGNETMETADATA_H
 #define VLC_BITTORRENT_MAGNETMETADATA_H
 
-#include "vlc.h"
+typedef struct vlc_object_t vlc_object_t;
 
 int
 MagnetMetadataOpen(vlc_object_t*);

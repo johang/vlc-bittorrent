@@ -26,6 +26,7 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 #include "data.h"
 #include "magnetmetadata.h"
 #include "metadata.h"
+#include "vlc.h"
 
 // clang-format off
 

@@ -23,8 +23,8 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <memory>
 
-#include "data.h"
 #include "download.h"
+#include "data.h"
 #include "vlc.h"
 
 #define MIN_CACHING_TIME (10000)
