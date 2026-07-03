@@ -26,6 +26,7 @@ XXX: This file is basically just glue code so vlc can make interruptible
 #include "config.h"
 #endif
 
+#include <algorithm>
 #include <chrono>
 #include <fstream>
 #include <future>
@@ -77,6 +78,14 @@ to_hex(const lt::sha1_hash& ih)
         result += chars[(byte >> 4) & 0x0F];
         result += chars[byte & 0x0F];
     }
+    return result;
+}
+
+static std::string
+normalize_path(const std::string& path)
+{
+    std::string result = path;
+    std::replace(result.begin(), result.end(), '\\', '/');
     return result;
 }
 
@@ -369,7 +378,7 @@ Download::get_files()
 
     const lt::file_storage& fs = m_th.torrent_file()->files();
     for (int i = 0; i < fs.num_files(); i++) {
-        files.push_back(std::make_pair(fs.file_path(i), fs.file_size(i)));
+        files.push_back(std::make_pair(normalize_path(fs.file_path(i)), fs.file_size(i)));
     }
 
     return files;
@@ -391,7 +400,7 @@ Download::get_files(char* metadata, size_t metadatasz)
 
     const lt::file_storage& fs = ti.files();
     for (int i = 0; i < fs.num_files(); i++) {
-        files.push_back(std::make_pair(fs.file_path(i), fs.file_size(i)));
+        files.push_back(std::make_pair(normalize_path(fs.file_path(i)), fs.file_size(i)));
     }
 
     return files;
@@ -515,7 +524,7 @@ Download::get_file(std::string path)
 
     const lt::file_storage& fs = m_th.torrent_file()->files();
     for (int i = 0; i < fs.num_files(); i++) {
-        if (fs.file_path(i) == path)
+        if (path == normalize_path(fs.file_path(i)))
             return std::make_pair(i, (uint64_t) fs.file_size(i));
     }
 

@@ -8,4 +8,32 @@ project(
   LANGUAGES C CXX
 )
 
+find_package(PkgConfig REQUIRED)
+find_package(Threads REQUIRED)
+
+pkg_search_module(
+  VlcPlugin
+    REQUIRED IMPORTED_TARGET
+      "vlc-plugin >= 3.0.0"
+)
+
+pkg_search_module(
+  LibtorrentRasterbar
+    REQUIRED IMPORTED_TARGET
+      "libtorrent-rasterbar >= 2.0.0"
+)
+
+# For tests only
+pkg_search_module(
+  LibVlc
+    IMPORTED_TARGET
+      "libvlc >= 3.0.0"
+)
+
 add_subdirectory(src)
+
+include(CTest)
+
+if(BUILD_TESTING)
+  add_subdirectory(test)
+endif()

@@ -18,20 +18,34 @@
 
 set -o pipefail
 
-export VLC_PLUGIN_PATH=$(pwd)/../src/.libs
+# Test binary
+VLCDUMMY_BIN=${VLCDUMMY_BIN:-../vlcdummy}
+
+# Plugin location
+export VLC_PLUGIN_PATH=${VLC_PLUGIN_PATH:-$(pwd)/../src/.libs}
+
+# Headless test
 unset DISPLAY
 
 mkdir -p $HOME/.config/vlc
 mkdir -p $HOME/.cache/vlc
 mkdir -p $HOME/.local/share/vlc
 
+# msys2 cache dir
+mkdir -p /c/Users/$USER/AppData/Roaming/vlc
+
 run_test() {
 	echo vlcdummy "$3" $2
 	pushd data
-	cp -n *.torrent $HOME/.cache/vlc
-	(timeout 60 ../vlcdummy "$3" $2 || :) 2>/dev/null |
-	grep ^VLCDUMMY |
-	diff -U 10 "$4" - |
+	if [ -d $HOME/.cache/vlc ]; then
+		cp -n *.torrent $HOME/.cache/vlc
+	fi
+	if [ -d /c/Users/$USER/AppData/Roaming/vlc ]; then
+		cp -n *.torrent /c/Users/$USER/AppData/Roaming/vlc
+	fi
+	(timeout 60 "$VLCDUMMY_BIN" "$3" $2 || :) 2>/dev/null |
+	grep "^VLCDUMMY" > output.log
+	diff -U 10 "$4" output.log |
 	sed -e "s/^/# /" &&
 	echo "ok # $1 $3" ||
 	echo "not ok # $1 $3"

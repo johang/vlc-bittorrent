@@ -2,21 +2,6 @@ cmake_minimum_required(VERSION 3.14)
 
 project(vlc-bittorrent)
 
-find_package(PkgConfig REQUIRED)
-find_package(Threads REQUIRED)
-
-pkg_check_modules(
-  VlcPlugin
-    REQUIRED IMPORTED_TARGET
-      "vlc-plugin >= 3.0.0"
-)
-
-pkg_check_modules(
-  LibtorrentRasterbar
-    REQUIRED IMPORTED_TARGET
-      "libtorrent-rasterbar >= 2.0.0"
-)
-
 add_library(
   access_bittorrent_plugin
     MODULE
@@ -53,7 +38,9 @@ target_link_libraries(
   access_bittorrent_plugin
     PUBLIC
       PkgConfig::VlcPlugin
+    PRIVATE
       PkgConfig::LibtorrentRasterbar
+      Threads::Threads
 )
 
 set_target_properties(

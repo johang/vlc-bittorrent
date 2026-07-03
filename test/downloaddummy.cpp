@@ -30,11 +30,12 @@ static bool abort_metadata = false;
 static void
 test_metadata(std::shared_ptr<Download> d)
 {
+    auto name = d->get_name();
+    auto infohash = d->get_infohash();
+    std::cout << "DOWNLOADDUMMY NAME " << name << std::endl;
+    std::cout << "DOWNLOADDUMMY INFOHASH " << infohash << std::endl;
+
     auto md = d->get_metadata();
-
-    std::cout << "DOWNLOADDUMMY NAME " << d->get_name() << std::endl;
-    std::cout << "DOWNLOADDUMMY INFOHASH " << d->get_infohash() << std::endl;
-
     for (auto& f : Download::get_files(md->data(), md->size())) {
         std::cout << "DOWNLOADDUMMY FILE " << f.first << " " << f.second
                   << std::endl;
@@ -88,7 +89,7 @@ main(int argc, char* argv[])
         return -1;
 
     try {
-        auto md = Download::get_metadata(argv[1], ".", "/tmp");
+        auto md = Download::get_metadata(argv[1], ".", "cache");
 
         auto d = Download::get_download(md->data(), md->size(), ".", true);
 
