@@ -1,4 +1,4 @@
-name: vlc-bittorrent CI (Windows)
+name: vlc-bittorrent CI
 
 permissions:
   contents: read
@@ -14,6 +14,43 @@ on:
     - cron: '00 22 * * 0'
 
 jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    name: 'Ubuntu (${{ matrix.image }})'
+    timeout-minutes: 20
+
+    strategy:
+      matrix:
+        image:
+          - 'ubuntu:latest'
+          - 'ubuntu:rolling'
+          - 'ubuntu:devel'
+      fail-fast: false
+
+    container:
+      image: ${{ matrix.image }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+
+    - name: Install dependencies
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        apt-get update
+        apt-get -y install autoconf autoconf-archive automake build-essential libtool libtorrent-rasterbar-dev libvlccore-dev libvlc-dev vlc
+
+    - name: Build
+      run: |
+        autoreconf -i
+        ./configure --with-tests
+        make
+
+    - name: Test
+      run: |
+        make check || (cat test/*.log test/data/*.log && false)
+
   msys2-ucrt64:
     runs-on: windows-latest
     timeout-minutes: 45
@@ -50,4 +87,7 @@ jobs:
         run: |
           cmake -B build
           cmake --build build -v
+
+      - name: Test
+        run: |
           ctest --test-dir build -V
