@@ -138,7 +138,7 @@ using ReadValue = std::pair<boost::shared_array<char>, int>;
 
 class ReadPiecePromise : public std::promise<ReadValue>, public Alert_Listener {
 public:
-    ReadPiecePromise(lt::sha1_hash ih, int p)
+    ReadPiecePromise(lt::sha1_hash ih, lt::piece_index_t p)
         : m_ih(ih)
         , m_piece(p)
     {
@@ -166,12 +166,12 @@ public:
 private:
     lt::sha1_hash m_ih;
 
-    int m_piece;
+    lt::piece_index_t m_piece;
 };
 
 class DownloadPiecePromise : public std::promise<void>, public Alert_Listener {
 public:
-    DownloadPiecePromise(lt::sha1_hash ih, int p)
+    DownloadPiecePromise(lt::sha1_hash ih, lt::piece_index_t p)
         : m_ih(ih)
         , m_piece(p)
     {
@@ -195,7 +195,7 @@ public:
 private:
     lt::sha1_hash m_ih;
 
-    int m_piece;
+    lt::piece_index_t m_piece;
 };
 
 class MetadataDownloadPromise : public std::promise<void>,
@@ -523,9 +523,9 @@ Download::get_file(std::string path)
     download_metadata();
 
     const lt::file_storage& fs = m_th.torrent_file()->files();
-    for (int i = 0; i < fs.num_files(); i++) {
+    for (lt::file_index_t i(0); i < fs.end_file(); ++i) {
         if (path == normalize_path(fs.file_path(i)))
-            return std::make_pair(i, (uint64_t) fs.file_size(i));
+            return std::make_pair(static_cast<int>(i), (uint64_t) fs.file_size(i));
     }
 
     throw std::runtime_error("Failed to find file");
