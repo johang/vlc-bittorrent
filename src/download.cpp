@@ -61,9 +61,9 @@ XXX: This file is basically just glue code so vlc can make interruptible
 #define kB (1024)
 #define MB (1024 * kB)
 
-#define PRIO_HIGHEST 7
-#define PRIO_HIGHER 6
-#define PRIO_HIGH 5
+#define PRIO_HIGHEST lt::download_priority_t{7}
+#define PRIO_HIGHER lt::download_priority_t{6}
+#define PRIO_HIGH lt::download_priority_t{5}
 
 namespace lt = libtorrent;
 
@@ -354,12 +354,12 @@ Download::set_piece_priority(int file, int64_t off, int size, libtorrent::downlo
     auto fs = ti->files();
 
     // Make sure off + size <= file size
-    int64_t filesz = fs.file_size(file);
+    int64_t filesz = fs.file_size(lt::file_index_t{file});
     off = std::min(off, filesz);
     size = (int) std::min({ (int64_t) std::numeric_limits<int>::max(),
         (int64_t) size, filesz - off });
 
-    auto part = ti->map_file(file, off, size);
+    auto part = ti->map_file(lt::file_index_t{file}, off, size);
     for (; part.length > 0; part.length -= ti->piece_size(part.piece++)) {
         if (!m_th.have_piece(part.piece)
             && m_th.piece_priority(part.piece) < prio)
@@ -377,7 +377,7 @@ Download::get_files()
     std::vector<std::pair<std::string, uint64_t>> files;
 
     const lt::file_storage& fs = m_th.torrent_file()->files();
-    for (int i = 0; i < fs.num_files(); i++) {
+    for (lt::file_index_t i(0); i < fs.end_file(); ++i) {
         files.push_back(std::make_pair(normalize_path(fs.file_path(i)), fs.file_size(i)));
     }
 
@@ -399,7 +399,7 @@ Download::get_files(char* metadata, size_t metadatasz)
     std::vector<std::pair<std::string, uint64_t>> files;
 
     const lt::file_storage& fs = ti.files();
-    for (int i = 0; i < fs.num_files(); i++) {
+    for (lt::file_index_t i(0); i < fs.end_file(); ++i) {
         files.push_back(std::make_pair(normalize_path(fs.file_path(i)), fs.file_size(i)));
     }
 
