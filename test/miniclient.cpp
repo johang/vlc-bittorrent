@@ -36,7 +36,7 @@ along with vlc-bittorrent.  If not, see <http://www.gnu.org/licenses/>.
 namespace lt = libtorrent;
 
 #define ALERTS \
-    (lt::alert::status_notification | lt::alert::progress_notification \
+    (lt::alert::status_notification \
         | lt::alert::error_notification | lt::alert::peer_notification)
 
 int
@@ -49,7 +49,6 @@ main(int argc, char const* argv[])
         p.set_bool(lt::settings_pack::enable_upnp, false);
         p.set_bool(lt::settings_pack::enable_natpmp, false);
         p.set_bool(lt::settings_pack::enable_dht, false);
-        p.set_bool(lt::settings_pack::broadcast_lsd, true);
 
         lt::session ses(p);
 

@@ -309,12 +309,12 @@ Download::read(int file, int64_t fileoff, char* buf, size_t buflen,
     if (fileoff < 0)
         throw std::runtime_error("File offset negative");
 
-    int64_t filesz = fs.file_size(file);
+    int64_t filesz = fs.file_size(lt::file_index_t{file});
     if (fileoff >= filesz)
         return 0;
 
     // Figure out what to read
-    auto part = ti->map_file(file, fileoff,
+    auto part = ti->map_file(lt::file_index_t{file}, fileoff,
         (int) std::min({ (int64_t) std::numeric_limits<int>::max(),
             (int64_t) buflen, filesz - fileoff }));
     if (part.length <= 0)
