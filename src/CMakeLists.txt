@@ -31,7 +31,7 @@ target_compile_definitions(
 target_compile_features(
   access_bittorrent_plugin
     PUBLIC
-      cxx_std_14
+      cxx_std_17
 )
 
 target_link_libraries(

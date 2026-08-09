@@ -27,7 +27,7 @@ target_include_directories(
 target_compile_features(
   downloaddummy
     PUBLIC
-      cxx_std_14
+      cxx_std_17
 )
 
 target_link_libraries(
@@ -91,7 +91,7 @@ add_executable(miniclient miniclient.cpp)
 target_compile_features(
   miniclient
     PUBLIC
-      cxx_std_14
+      cxx_std_17
 )
 
 target_link_libraries(
